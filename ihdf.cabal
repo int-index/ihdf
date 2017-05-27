@@ -1,0 +1,66 @@
+name:                ihdf
+version:             0.1.0.0
+synopsis:            Intermediate Haskell Document Format
+build-type:          Simple
+cabal-version:       >=1.10
+
+executable ihdf
+
+  main-is:
+    Main.hs
+
+  other-modules:
+    BookStructure
+    BookParser
+    BookRender
+
+  build-depends:
+    base >=4.9 && <4.10,
+    network-uri,
+    text,
+    blaze-html,
+    clay,
+    megaparsec,
+    split,
+    turtle,
+    lens,
+    containers,
+    foldl
+
+  hs-source-dirs:
+    src
+
+  default-language:
+    Haskell2010
+
+  default-extensions:
+    BangPatterns
+    ConstraintKinds
+    DataKinds
+    DeriveGeneric
+    DeriveFunctor
+    DeriveFoldable
+    DeriveTraversable
+    FlexibleContexts
+    FlexibleInstances
+    GADTs
+    GeneralizedNewtypeDeriving
+    LambdaCase
+    MultiParamTypeClasses
+    MultiWayIf
+    NegativeLiterals
+    OverloadedStrings
+    PatternSynonyms
+    PolyKinds
+    RankNTypes
+    RecordWildCards
+    RecursiveDo
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
+    TupleSections
+    TypeApplications
+    TypeFamilies
+    TypeOperators
+    UndecidableInstances
+    ViewPatterns
