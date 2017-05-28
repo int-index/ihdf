@@ -36,8 +36,10 @@ data Unit =
   UnitParagraph Paragraph |
   UnitTodo Unit |
   UnitNote Unit |
+  UnitTip Unit |
   UnitSnippet Snippet |
   UnitList [Unit] |
+  UnitTable [Unit] [[Unit]] |
   UnitPicture Picture |
   Units [Unit]
   deriving (Eq, Show)

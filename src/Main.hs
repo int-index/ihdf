@@ -52,8 +52,11 @@ readChapters srcPath tableOfContents =
         chapterFileName = fromText ((chapterId ^. _ChapterId) <> ".ihdf")
         chapterPath = srcPath </> chapterFileName
       chapterFileContent <- liftIO $ readTextFile chapterPath
-      either handleParseError return $
+      (section, warnings) <- either handleParseError return $
         parseChapter chapterPath chapterFileContent
+      traverse (printf (makeFormat renderWarning % "\n")) warnings
+      return section
+
 
 handleParseError :: MonadIO io => ParseErr -> io a
 handleParseError parseError = do

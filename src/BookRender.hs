@@ -80,6 +80,17 @@ cssChapter = do
     C.paddingLeft (C.em 2)
     C.paddingRight (C.em 1)
     C.border C.solid (C.px 1) C.red
+  ".tip" ? do
+    C.paddingLeft (C.em 2)
+    C.paddingRight (C.em 1)
+    C.border C.solid (C.px 1) C.green
+  C.table ? do
+    (C.marginTop <> C.marginLeft) (C.em 1)
+    C.borderCollapse C.collapse
+  C.thead ? do
+    C.borderBottom C.solid (C.px 1) (C.grayish 0xcd)
+  (C.td <> C.th) ? do
+    (C.paddingLeft <> C.paddingRight) (C.em 0.5)
 
 renderSection :: Depth -> Section -> H.Html
 renderSection d s = do
@@ -104,8 +115,14 @@ renderUnit = \case
   UnitParagraph (Paragraph s) -> H.p $ renderSpan s
   UnitTodo u -> H.div ! A.class_ "todo" $ renderUnit u
   UnitNote u -> H.div ! A.class_ "note" $ renderUnit u
+  UnitTip u -> H.div ! A.class_ "tip" $ renderUnit u
   UnitSnippet (Snippet t) -> (H.code . H.pre) (H.toHtml t)
   UnitList us -> H.ul (foldMap (H.li . renderUnit) us)
+  UnitTable h rs -> do
+    H.table $ do
+      H.thead . H.tr $ foldMap (H.th . renderUnit) h
+      let renderRow = H.tr . foldMap (H.td . renderUnit)
+      H.tbody $ foldMap renderRow rs
   Units us -> foldMap renderUnit us
 
 renderURI :: URI -> Text
