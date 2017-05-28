@@ -5,13 +5,19 @@ import Data.Text
 import Network.URI
 import Control.Lens
 
+newtype Depth = Depth Int
+
+incDepth :: Depth -> Depth
+incDepth (Depth n) = Depth (n+1)
+
 data Span =
   Span Text |
   Mono Text |
+  Math Text |
+  Parens Span |
   Spans [Span] |
-  Strong Span |
   Emphasis Span |
-  GlobalLink URI Span
+  GlobalLink URI (Maybe Span)
   deriving (Eq, Show)
 
 data Snippet = Snippet Text
@@ -19,13 +25,6 @@ data Snippet = Snippet Text
 
 data Paragraph = Paragraph Span
   deriving (Eq, Show)
-
-data Table =
-  Table {
-    _tableComment :: Span,
-    _tableHeader :: [Span],
-    _tableRows :: [[Span]]
-  } deriving (Eq, Show)
 
 data Picture =
   Picture {
@@ -35,24 +34,22 @@ data Picture =
 
 data Unit =
   UnitParagraph Paragraph |
-  UnitTodo Paragraph |
-  UnitNote Paragraph |
+  UnitTodo Unit |
+  UnitNote Unit |
   UnitSnippet Snippet |
-  UnitTable Table |
-  UnitPicture Picture
+  UnitList [Unit] |
+  UnitPicture Picture |
+  Units [Unit]
   deriving (Eq, Show)
 
 data Section =
   Section {
     _sectionHeader :: Span,
-    _sectionUnits :: [Unit]
+    _sectionUnits :: [Unit],
+    _sectionSubsections :: [Section]
   } deriving (Eq, Show)
 
-data Chapter =
-  Chapter {
-    _chapterHeader :: Span,
-    _chapterSections :: [Section]
-  } deriving (Eq, Show)
+makeLenses ''Section
 
 newtype ChapterId = ChapterId Text
   deriving (Eq, Ord, Show)
@@ -69,7 +66,7 @@ makeLenses ''TableOfContents
 data Book =
   Book {
     _bookTableOfContents :: TableOfContents,
-    _bookChapters        :: Map ChapterId Chapter
+    _bookChapters        :: Map ChapterId Section
   } deriving (Eq, Show)
 
 makeLenses ''Book

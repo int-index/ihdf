@@ -25,7 +25,9 @@ executable ihdf
     turtle,
     lens,
     containers,
-    foldl
+    foldl,
+    mtl,
+    mmorph
 
   hs-source-dirs:
     src

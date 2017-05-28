@@ -43,7 +43,7 @@ readTableOfContents srcPath = do
   either handleParseError return $
     parseTableOfContents tableOfContentsFileName tableOfContentsFileContent
 
-readChapters :: FilePath -> TableOfContents -> IO (Map ChapterId Chapter)
+readChapters :: FilePath -> TableOfContents -> IO (Map ChapterId Section)
 readChapters srcPath tableOfContents =
   flip Turtle.fold Fold.map $ do
     chapterId <- select $ tableOfContents ^. tocChapters
