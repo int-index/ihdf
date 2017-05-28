@@ -145,10 +145,10 @@ preprocessModule = \case
             mUri = parseURI (Text.unpack tUri)
           case mUri of
             Just uri ->
-              return $ GlobalLink uri (Just $ Mono packageName)
+              return $ GlobalLink uri (Just $ Mono moduleName)
             _ -> do
               warn WInvalidModule
-              return $ Mono packageName
+              return $ Mono moduleName
       _ -> fail $ "Could not parse module/package: " ++ show t
   s      -> do
     warn WInvalidModule
