@@ -70,6 +70,8 @@ cssChapter = do
     C.position C.relative
     C.fontFamily ["PT Serif"] [C.serif]
     C.width (C.em 50)
+  C.code ? do
+    C.whiteSpace C.nowrap
   ".note" ? do
     C.paddingLeft (C.em 2)
     C.paddingRight (C.em 1)
