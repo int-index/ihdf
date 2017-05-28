@@ -72,17 +72,15 @@ cssChapter = do
     C.width (C.em 50)
   C.code ? do
     C.whiteSpace C.nowrap
-  ".note" ? do
+  (".note" <> ".todo" <> ".tip") ? do
     C.paddingLeft (C.em 2)
     C.paddingRight (C.em 1)
+    C.marginBottom (C.em 1)
+  ".note" ? do
     C.border C.solid (C.px 1) skyblue
   ".todo" ? do
-    C.paddingLeft (C.em 2)
-    C.paddingRight (C.em 1)
     C.border C.solid (C.px 1) C.red
   ".tip" ? do
-    C.paddingLeft (C.em 2)
-    C.paddingRight (C.em 1)
     C.border C.solid (C.px 1) C.green
   C.table ? do
     (C.marginTop <> C.marginLeft) (C.em 1)
