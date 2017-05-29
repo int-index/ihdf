@@ -27,7 +27,8 @@ executable ihdf
     containers,
     foldl,
     mtl,
-    mmorph
+    mmorph,
+    optional-args
 
   hs-source-dirs:
     src

@@ -17,7 +17,7 @@ data Span =
   Parens Span |
   Spans [Span] |
   Emphasis Span |
-  GlobalLink URI (Maybe Span)
+  Link URI (Maybe Span)
   deriving (Eq, Show)
 
 data Snippet = Snippet Text
@@ -28,9 +28,11 @@ data Paragraph = Paragraph Span
 
 data Picture =
   Picture {
-    _pictureLink :: Text,
-    _pictureComment :: Span
+    _pictureLink :: URI,
+    _pictureComment :: Maybe Text
   } deriving (Eq, Show)
+
+makeLenses ''Picture
 
 data TableRow =
   TableSubsectionRow Unit |

@@ -123,7 +123,18 @@ renderUnit = \case
   UnitSnippet (Snippet t) -> (H.code . H.pre) (H.toHtml t)
   UnitList us -> H.ul (foldMap (H.li . renderUnit) us)
   UnitTable tbl -> renderTable tbl
+  UnitPicture pic -> renderPicture pic
   Units us -> foldMap renderUnit us
+
+renderPicture :: Picture -> H.Html
+renderPicture pic =
+  addAltText $
+    H.img ! A.src (fromString . Text.unpack . renderURI $ pic ^. pictureLink)
+  where
+    addAltText = case pic ^. pictureComment of
+      Nothing -> id
+      Just t -> (! A.alt (fromString $ Text.unpack t))
+
 
 renderTable :: Table -> H.Html
 renderTable (Table headerUnits rows) = H.table $ do
@@ -173,7 +184,7 @@ renderSpan = \case
   Parens s -> "(" <> renderSpan s <> ")"
   Spans ss -> foldMap renderSpan ss
   Emphasis s -> H.em (renderSpan s)
-  GlobalLink uri ms ->
+  Link uri ms ->
     let t = renderURI uri
     in H.a (maybe (H.toHtml t) renderSpan ms) ! A.href (H.toValue t)
 

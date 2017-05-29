@@ -3,6 +3,8 @@ module Main where
 import Prelude hiding (FilePath)
 
 import Control.Lens
+import Network.URI
+import Data.Optional
 import Turtle
 
 import Data.Map (Map)
@@ -16,22 +18,30 @@ import BookStructure
 data Opts =
   Opts {
     _optsSource :: FilePath,
+    _optsResources :: URI,
     _optsOutput :: FilePath
   } deriving ()
 
 makeLenses ''Opts
 
+optURI :: ArgName -> ShortName -> Optional HelpMessage -> Parser URI
+optURI = opt (parseURI . Text.unpack)
+
 pOpts :: Parser Opts
 pOpts =
   Opts <$>
     optPath "src" 's' "Directory with .ihdf source files" <*>
+    optURI  "res" 'r' "URL to resources" <*>
     optPath "out" 'o' "Directory with .html output files"
 
 main :: IO ()
 main = do
   opts <- options "Build \"Intermediate Haskell\"" pOpts
   tableOfContents <- readTableOfContents (opts ^. optsSource)
-  chapters <- readChapters (opts ^. optsSource) tableOfContents
+  chapters <- readChapters
+    (opts ^. optsResources)
+    (opts ^. optsSource)
+    tableOfContents
   writeBook (opts ^. optsOutput) $ Book tableOfContents chapters
 
 readTableOfContents :: FilePath -> IO TableOfContents
@@ -43,8 +53,8 @@ readTableOfContents srcPath = do
   either handleParseError return $
     parseTableOfContents tableOfContentsFileName tableOfContentsFileContent
 
-readChapters :: FilePath -> TableOfContents -> IO (Map ChapterId Section)
-readChapters srcPath tableOfContents =
+readChapters :: URI -> FilePath -> TableOfContents -> IO (Map ChapterId Section)
+readChapters resURI srcPath tableOfContents =
   flip Turtle.fold Fold.map $ do
     chapterId <- select $ tableOfContents ^. tocChapters
     (chapterId,) <$> do
@@ -53,10 +63,9 @@ readChapters srcPath tableOfContents =
         chapterPath = srcPath </> chapterFileName
       chapterFileContent <- liftIO $ readTextFile chapterPath
       (section, warnings) <- either handleParseError return $
-        parseChapter chapterPath chapterFileContent
+        parseChapter resURI chapterPath chapterFileContent
       traverse (printf (makeFormat renderWarning % "\n")) warnings
       return section
-
 
 handleParseError :: MonadIO io => ParseErr -> io a
 handleParseError parseError = do
