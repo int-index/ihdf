@@ -74,7 +74,7 @@ matchString model actual = case splitAt (length model) actual of
 
 pTextSpan :: MonadParsec e String m => m Span
 pTextSpan = do
-  Span . preprocessContent . Text.pack <$> some (noneOf @[] "\n[](){}`#$")
+  Span . preprocessContent . Text.pack <$> some (noneOf @[] "\n[](){}`$")
   where
     preprocessContent =
       Text.replace "<<" "“" .
@@ -322,12 +322,14 @@ pUnits :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) 
 pUnits = lexeme $ between (lexeme (string "{")) (string "}") (many pUnit)
 
 pUnit :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Unit
-pUnit = asum
-  [ Units <$> pUnits,
-    pAnnUnit,
-    UnitSnippet <$> pSnippet,
-    UnitList <$> pList,
-    UnitParagraph <$> pParagraph ]
+pUnit = do
+  notFollowedBy (char '#')
+  asum
+    [ Units <$> pUnits,
+      pAnnUnit,
+      UnitSnippet <$> pSnippet,
+      UnitList <$> pList,
+      UnitParagraph <$> pParagraph ]
 
 pSection :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Section
 pSection = do
