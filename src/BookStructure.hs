@@ -32,6 +32,14 @@ data Picture =
     _pictureComment :: Span
   } deriving (Eq, Show)
 
+data TableRow =
+  TableSubsectionRow Unit |
+  TableRegularRow [Unit]
+  deriving (Eq, Show)
+
+data Table = Table [Unit] [TableRow]
+  deriving (Eq, Show)
+
 data Unit =
   UnitParagraph Paragraph |
   UnitTodo Unit |
@@ -39,7 +47,7 @@ data Unit =
   UnitTip Unit |
   UnitSnippet Snippet |
   UnitList [Unit] |
-  UnitTable [Unit] [[Unit]] |
+  UnitTable Table |
   UnitPicture Picture |
   Units [Unit]
   deriving (Eq, Show)

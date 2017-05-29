@@ -6,6 +6,9 @@ import Control.Lens
 import qualified Data.Map as Map
 import Network.URI
 import Data.Monoid
+import Data.String
+import Data.Foldable
+import qualified Data.List as List
 
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import Text.Blaze.Html5 ((!))
@@ -89,6 +92,9 @@ cssChapter = do
     C.borderBottom C.solid (C.px 1) (C.grayish 0xcd)
   (C.td <> C.th) ? do
     (C.paddingLeft <> C.paddingRight) (C.em 0.5)
+  ".subsection" ? do
+    C.paddingTop (C.em 0.5)
+    C.textAlign C.center
 
 renderSection :: Depth -> Section -> H.Html
 renderSection d s = do
@@ -116,12 +122,45 @@ renderUnit = \case
   UnitTip u -> H.div ! A.class_ "tip" $ renderUnit u
   UnitSnippet (Snippet t) -> (H.code . H.pre) (H.toHtml t)
   UnitList us -> H.ul (foldMap (H.li . renderUnit) us)
-  UnitTable h rs -> do
-    H.table $ do
-      H.thead . H.tr $ foldMap (H.th . renderUnit) h
-      let renderRow = H.tr . foldMap (H.td . renderUnit)
-      H.tbody $ foldMap renderRow rs
+  UnitTable tbl -> renderTable tbl
   Units us -> foldMap renderUnit us
+
+renderTable :: Table -> H.Html
+renderTable (Table headerUnits rows) = H.table $ do
+  H.thead $ foldMap (H.th . renderHeaderUnit True) headerUnits
+  H.tbody $ foldMap (H.tr . renderRow) rows
+  where
+    renderRow :: TableRow -> H.Html
+    renderRow = \case
+      TableSubsectionRow u ->
+        let
+          sTableWidth = (fromString . show . length) headerUnits
+        in
+          H.td
+            ! A.class_ "subsection"
+            ! A.colspan sTableWidth
+            $ renderHeaderUnit True u
+      TableRegularRow us -> foldMap (H.td . renderTableUnit) us
+
+renderTableUnit :: Unit -> H.Html
+renderTableUnit = \case
+  Units (u:us) ->
+    fold .  List.intersperse H.br $
+    renderTableUnit u : fmap renderTableUnit us
+  UnitParagraph (Paragraph s) -> renderSpan s
+  u -> renderUnit u
+
+renderHeaderUnit :: Bool -> Unit -> H.Html
+renderHeaderUnit b = \case
+  Units (u:us) ->
+    fold . List.intersperse H.br $
+    renderHeaderUnit b u : fmap (renderHeaderUnit False) us
+  UnitParagraph (Paragraph s) ->
+    strong' $ renderSpan s
+  u ->
+    strong' $ renderUnit u
+  where
+    strong' = if b then H.strong else id
 
 renderURI :: URI -> Text
 renderURI = Text.pack . ($"") . uriToString id

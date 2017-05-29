@@ -6,6 +6,7 @@ import Data.Monoid
 import Data.Foldable
 import Data.Maybe
 import Data.Bifunctor
+import Data.List.NonEmpty (NonEmpty(..), nonEmpty)
 import Control.Applicative
 import Data.Traversable
 import Control.Monad (void)
@@ -189,7 +190,7 @@ pAnnUnit :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m
 pAnnUnit = do
   unitTy <- try $ lexeme (some upperChar <* char ':')
   case unitTy of
-    "TABLE" -> pTable
+    "TABLE" -> UnitTable <$> pTable
     _ -> do
       unitWrap <- case unitTy of
         "TODO" -> pure UnitTodo
@@ -200,42 +201,67 @@ pAnnUnit = do
           pure id
       unitWrap <$> pUnit
 
-data TableItem = TableSepHeader | TableSepRow | TableUnit Unit
+data TableSep =
+  TableSepHeader |
+  TableSepRow |
+  TableSepSubsection
 
-isTableSepHeader :: TableItem -> Bool
-isTableSepHeader = \case
-  TableSepHeader -> True
-  _              -> False
+data TableItem =
+  TableSep TableSep |
+  TableUnit Unit
 
-isTableSepRow :: TableItem -> Bool
-isTableSepRow = \case
-  TableSepRow -> True
-  _           -> False
+data TableSection = TableSection [Unit] TableSep
 
 pTableItem :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => m TableItem
 pTableItem =
-  TableSepHeader <$ lexeme (string "====") <|>
-  TableSepRow <$ lexeme (string "----") <|>
+  TableSep TableSepHeader <$ lexeme (string "====") <|>
+  TableSep TableSepRow <$ lexeme (string "----") <|>
+  TableSep TableSepSubsection <$ lexeme (string "++++") <|>
   TableUnit <$> (lexeme (string "|") *> pUnit)
 
-pTable :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => m Unit
+pTable :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => m Table
 pTable = do
   tableItems <- some pTableItem
-  case List.splitWhen isTableSepHeader tableItems of
-    [headerItems, otherItems] -> do
-      headerUnits <- for headerItems $ \case
-        TableUnit u -> return u
-        _           -> fail "Bad delimiter in table header"
-      let otherItems' = List.splitWhen isTableSepRow otherItems
-      otherUnits <- for otherItems' $ \rowItems ->
-        for rowItems $ \case
-          TableUnit u -> return u
-          _           -> error "Parser bug: remaining delimiter"
-      let headerLength = List.length headerUnits
-      unless (all ((==headerLength) . List.length) otherUnits) $ do
-        warn WInconsistentRowLength
-      return $ UnitTable headerUnits otherUnits
-    _ -> fail "Tables with zero or multiple headers not supported"
+  case toTableSections tableItems of
+    Left () -> fail "Table must end with a separator to determine section type"
+    Right tableSections -> case nonEmpty tableSections of
+      Nothing -> fail "Table is empty"
+      Just (firstTableSection :| tableSections') -> do
+        case firstTableSection of
+          TableSection headerUnits TableSepHeader -> do
+            tableRows <- for tableSections' $ \case
+              TableSection _ TableSepHeader ->
+                fail "Table header occurs after regular rows"
+              TableSection us TableSepSubsection -> do
+                case us of
+                  [u] -> return (TableSubsectionRow u)
+                  _   -> fail "Table subsection must have exactly one row"
+              TableSection us TableSepRow -> do
+                unless (length us == length headerUnits) $
+                  warn WInconsistentRowLength
+                return (TableRegularRow us)
+            return $ Table headerUnits tableRows
+          _ -> fail "Table has no header"
+  where
+    -- Get the next table section: a sequence of table units ending with a
+    -- table separator.
+    chopTableSection :: [TableItem] -> Maybe (TableSection, [TableItem])
+    chopTableSection tableItems = do
+      tableItem :| tableItems' <- nonEmpty tableItems
+      case tableItem of
+        TableSep tabSep -> Just (TableSection [] tabSep, tableItems')
+        TableUnit u -> do
+          (TableSection us tabSep, tableItems'') <- chopTableSection tableItems'
+          Just (TableSection (u:us) tabSep, tableItems'')
+
+    -- Break a table into sections.
+    toTableSections :: [TableItem] -> Either () [TableSection]
+    toTableSections [] = Right []
+    toTableSections tableItems = do
+      case chopTableSection tableItems of
+        Nothing -> Left ()
+        Just (tabSection, tableItems') -> do
+          (tabSection:) <$> toTableSections tableItems'
 
 pSnippet :: (MonadParsec e String m, MonadReader Depth m) => m Snippet
 pSnippet = lexeme $ do
@@ -247,7 +273,7 @@ pList :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) =
 pList = some $ lexeme (string "*") *> pUnit
 
 pUnits :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => m [Unit]
-pUnits = lexeme $ between (lexeme (string "{")) (string "}") (some pUnit)
+pUnits = lexeme $ between (lexeme (string "{")) (string "}") (many pUnit)
 
 pUnit :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => m Unit
 pUnit = asum
