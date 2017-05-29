@@ -2,7 +2,7 @@ module BookRender where
 
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Control.Lens
+import Control.Lens hiding ((|>))
 import qualified Data.Map as Map
 import Network.URI
 import Data.Monoid
@@ -16,8 +16,9 @@ import Text.Blaze.Html5 ((!))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Clay ((?), (-:))
+import Clay ((?), (-:), (|>))
 import qualified Clay as C
+import qualified Clay.Text as C.T
 
 import BookStructure
 
@@ -66,8 +67,14 @@ renderChapter s = do
     H.main $ do
       renderSection (Depth 1) s
 
-skyblue :: C.Color
-skyblue = C.rgb 0x3f 0x9b 0xbe
+colorNote :: C.Color
+colorNote = C.rgb 0x3f 0x9b 0xbe
+
+colorTodo :: C.Color
+colorTodo = C.red
+
+colorTip :: C.Color
+colorTip = C.rgb 0x26 0xc7 0x26
 
 cssChapter :: C.Css
 cssChapter = do
@@ -82,16 +89,41 @@ cssChapter = do
     C.width (C.em 50)
   C.code ? do
     C.whiteSpace C.nowrap
+    C.outline C.solid (C.px 1) (C.grayish 0xcd)
+    C.sym2 C.padding (C.em 0.1) (C.em 0.3)
+  (".package-name" <> ".module-name" <> C.code) ? do
+    C.fontFamily ["Ubuntu Mono"] [C.monospace]
+  C.legend ? do
+    C.marginBottom (C.em (-0.5))
+    C.textAlign C.center
+    C.fontVariant C.smallCaps
+  ".snippet" ? do
+    C.display C.block
+    C.outlineStyle C.none
+    C.borderLeft C.solid (C.px 2) (C.grayish 0xcd)
+    C.whiteSpace C.T.pre
+    C.padding (C.em 0.5) (C.em 0.5) (C.em 0.5) (C.em 1)
+    C.marginTop (C.em 1)
+    C.marginBottom (C.em 1)
   (".note" <> ".todo" <> ".tip") ? do
+    C.paddingTop (C.em 0)
+    C.paddingBottom (C.em 0)
     C.paddingLeft (C.em 2)
     C.paddingRight (C.em 1)
+    C.marginTop (C.em 1)
     C.marginBottom (C.em 1)
   ".note" ? do
-    C.border C.solid (C.px 1) skyblue
+    C.border C.solid (C.px 1) colorNote
+  ".note" |> C.legend ?
+    C.color colorNote
   ".todo" ? do
-    C.border C.solid (C.px 1) C.red
+    C.border C.solid (C.px 1) colorTodo
+  ".todo" |> C.legend ?
+    C.color colorTodo
   ".tip" ? do
-    C.border C.solid (C.px 1) C.green
+    C.border C.solid (C.px 1) colorTip
+  ".tip" |> C.legend ?
+    C.color colorTip
   C.table ? do
     (C.marginTop <> C.marginLeft) (C.em 1)
     C.borderCollapse C.collapse
@@ -129,10 +161,16 @@ renderHeader (Depth d) s = h $ renderSpan s
 renderUnit :: Given Book => Unit -> H.Html
 renderUnit = \case
   UnitParagraph (Paragraph s) -> H.p $ renderSpan s
-  UnitTodo u -> H.div ! A.class_ "todo" $ renderUnit u
-  UnitNote u -> H.div ! A.class_ "note" $ renderUnit u
-  UnitTip u -> H.div ! A.class_ "tip" $ renderUnit u
-  UnitSnippet (Snippet t) -> (H.code . H.pre) (H.toHtml t)
+  UnitTodo u -> H.fieldset ! A.class_ "todo" $ do
+    H.legend "Todo"
+    H.span $ renderUnit u
+  UnitNote u -> H.fieldset ! A.class_ "note" $ do
+    H.legend "Note"
+    H.span $ renderUnit u
+  UnitTip u -> H.fieldset ! A.class_ "tip" $ do
+    H.legend "Tip"
+    H.span $ renderUnit u
+  UnitSnippet (Snippet t) -> H.code ! A.class_ "snippet" $ H.toHtml t
   UnitList us -> H.ul (foldMap (H.li . renderUnit) us)
   UnitTable tbl -> renderTable tbl
   UnitPicture pic -> renderPicture pic
@@ -212,6 +250,12 @@ renderSpan = \case
   Spans ss -> foldMap renderSpan ss
   Emphasis s -> H.em (renderSpan s)
   ChapterRef cId -> renderChapterRef True cId
+  PackageRef packageName -> H.span
+    ! A.class_ "package-name"
+    $ H.toHtml packageName
+  ModuleRef moduleName -> H.span
+    ! A.class_ "module-name"
+    $ H.toHtml moduleName
   Link uri ms ->
     let t = renderURI uri
     in H.a (maybe (H.toHtml t) renderSpan ms) ! A.href (H.toValue t)
