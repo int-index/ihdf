@@ -9,6 +9,7 @@ import Data.Monoid
 import Data.String
 import Data.Foldable
 import qualified Data.List as List
+import Data.Reflection
 
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import Text.Blaze.Html5 ((!))
@@ -40,7 +41,7 @@ renderTableOfContents _ = return () -- TODO
 renderCss :: C.Css -> H.Html
 renderCss = H.style . H.preEscapedToHtml . C.renderWith C.compact []
 
-renderChapter :: Section -> H.Html
+renderChapter :: Given Book => Section -> H.Html
 renderChapter s = do
   H.head $ do
     metaPreamble
@@ -96,13 +97,13 @@ cssChapter = do
     C.paddingTop (C.em 0.5)
     C.textAlign C.center
 
-renderSection :: Depth -> Section -> H.Html
+renderSection :: Given Book => Depth -> Section -> H.Html
 renderSection d s = do
   renderHeader d (s ^. sectionHeader)
   foldMap renderUnit (s ^. sectionUnits)
   foldMap (renderSection (incDepth d)) (s ^. sectionSubsections)
 
-renderHeader :: Depth -> Span -> H.Html
+renderHeader :: Given Book => Depth -> Span -> H.Html
 renderHeader (Depth d) s = h $ renderSpan s
   where
     h = case d of
@@ -114,7 +115,7 @@ renderHeader (Depth d) s = h $ renderSpan s
       6 -> H.h6
       _ -> error "Invalid header depth"
 
-renderUnit :: Unit -> H.Html
+renderUnit :: Given Book => Unit -> H.Html
 renderUnit = \case
   UnitParagraph (Paragraph s) -> H.p $ renderSpan s
   UnitTodo u -> H.div ! A.class_ "todo" $ renderUnit u
@@ -136,7 +137,7 @@ renderPicture pic =
       Just t -> (! A.alt (fromString $ Text.unpack t))
 
 
-renderTable :: Table -> H.Html
+renderTable :: Given Book => Table -> H.Html
 renderTable (Table headerUnits rows) = H.table $ do
   H.thead $ foldMap (H.th . renderHeaderUnit True) headerUnits
   H.tbody $ foldMap (H.tr . renderRow) rows
@@ -153,7 +154,7 @@ renderTable (Table headerUnits rows) = H.table $ do
             $ renderHeaderUnit True u
       TableRegularRow us -> foldMap (H.td . renderTableUnit) us
 
-renderTableUnit :: Unit -> H.Html
+renderTableUnit :: Given Book => Unit -> H.Html
 renderTableUnit = \case
   Units (u:us) ->
     fold .  List.intersperse H.br $
@@ -161,7 +162,7 @@ renderTableUnit = \case
   UnitParagraph (Paragraph s) -> renderSpan s
   u -> renderUnit u
 
-renderHeaderUnit :: Bool -> Unit -> H.Html
+renderHeaderUnit :: Given Book => Bool -> Unit -> H.Html
 renderHeaderUnit b = \case
   Units (u:us) ->
     fold . List.intersperse H.br $
@@ -176,7 +177,17 @@ renderHeaderUnit b = \case
 renderURI :: URI -> Text
 renderURI = Text.pack . ($"") . uriToString id
 
-renderSpan :: Span -> H.Html
+renderChapterRef :: Given Book => ChapterId -> H.Html
+renderChapterRef chapterId = do
+  let mSpan = book ^? bookChapters . at chapterId . _Just . sectionHeader
+  case mSpan of
+    Nothing -> error "Invalid chapter id. Couldn't have passed validation in the parser!"
+    Just span -> "“" <> renderSpan span <> "”"
+  where
+    book :: Book
+    book = given
+
+renderSpan :: Given Book => Span -> H.Html
 renderSpan = \case
   Span t -> H.toHtml t
   Mono t -> H.code (H.toHtml t)
@@ -184,6 +195,7 @@ renderSpan = \case
   Parens s -> "(" <> renderSpan s <> ")"
   Spans ss -> foldMap renderSpan ss
   Emphasis s -> H.em (renderSpan s)
+  ChapterRef cId -> renderChapterRef cId
   Link uri ms ->
     let t = renderURI uri
     in H.a (maybe (H.toHtml t) renderSpan ms) ! A.href (H.toValue t)
@@ -207,4 +219,4 @@ renderBook book = rTableOfContents : rChapters
     rChapters =
       Map.toList (book ^. bookChapters) <&> \(chapterId, chapter) ->
         RenderedPage (chapterId ^. _ChapterId)
-          (renderPageContent . renderChapter $ chapter)
+          (renderPageContent . give book renderChapter $ chapter)

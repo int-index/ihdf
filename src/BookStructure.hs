@@ -10,6 +10,11 @@ newtype Depth = Depth Int
 incDepth :: Depth -> Depth
 incDepth (Depth n) = Depth (n+1)
 
+newtype ChapterId = ChapterId Text
+  deriving (Eq, Ord, Show)
+
+makePrisms ''ChapterId
+
 data Span =
   Span Text |
   Mono Text |
@@ -17,6 +22,7 @@ data Span =
   Parens Span |
   Spans [Span] |
   Emphasis Span |
+  ChapterRef ChapterId |
   Link URI (Maybe Span)
   deriving (Eq, Show)
 
@@ -62,11 +68,6 @@ data Section =
   } deriving (Eq, Show)
 
 makeLenses ''Section
-
-newtype ChapterId = ChapterId Text
-  deriving (Eq, Ord, Show)
-
-makePrisms ''ChapterId
 
 data TableOfContents =
   TableOfContents {

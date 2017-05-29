@@ -6,6 +6,7 @@ import Data.Monoid
 import Data.Foldable
 import Data.Maybe
 import Data.Bifunctor
+import Data.Reflection
 import Data.List.NonEmpty (NonEmpty(..), nonEmpty)
 import Control.Applicative
 import Data.Traversable
@@ -37,6 +38,7 @@ data Warning =
   WUnrecognizedUnit Text |
   WInvalidPackage |
   WInvalidModule |
+  WInvalidChapter |
   WInvalidPictureCaption |
   WInconsistentRowLength
 
@@ -61,6 +63,7 @@ renderWarning = \case
   WUnrecognizedUnit t -> "Unknown unit type " <> Text.pack (show t)
   WInvalidPackage -> "Invalid package name"
   WInvalidModule -> "Invalid module name"
+  WInvalidChapter -> "Invalid chapter name"
   WInvalidPictureCaption -> "Invalid picture caption"
   WInconsistentRowLength -> "Inconsistent row length"
 
@@ -74,6 +77,8 @@ pTextSpan = do
   Span . preprocessContent . Text.pack <$> some (noneOf @[] "\n[](){}`#$")
   where
     preprocessContent =
+      Text.replace "<<" "“" .
+      Text.replace ">>" "”" .
       Text.replace "---" "\x2014" .
       Text.replace "--" "\x2013"
 
@@ -97,28 +102,29 @@ pMathSpan = do
       '$'  <$ string "\\$"  <|>
       noneOf @[] "$"
 
-pHeader :: (MonadState [Warning] m, MonadReader (Depth, ResourcesURI) m, MonadParsec e String m) => m Span
+pHeader :: (MonadState [Warning] m, MonadReader Depth m, MonadParsec e String m) => (Given ResourcesURI, Given TableOfContents) => m Span
 pHeader = do
-  (Depth n, _) <- ask
+  Depth n <- ask
   string (replicate n '#' ++ " ") *> pSpan <* many newline
 
-pSpanProp :: (MonadState [Warning] m, MonadParsec e String m, MonadState [Warning] n, MonadReader (Depth, ResourcesURI) m) => m (Span -> n Span)
+pSpanProp :: (MonadState [Warning] m, MonadParsec e String m, MonadState [Warning] n, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m (Span -> n Span)
 pSpanProp = between (string "[") (string "]") $ do
   propStr <- some (noneOf @[] "] ")
   case propStr of
-    "def" -> return $ pure . Emphasis
-    "emph" -> return $ pure . Emphasis
+    "def" -> return $ return . Emphasis
+    "emph" -> return $ return . Emphasis
     "package" -> return preprocessPackage
     "module" -> return preprocessModule
+    "chapter" -> return preprocessChapter
     (matchString "res=" -> Just path) -> do
-      (_, ResourcesURI resURI) <- ask
+      let ResourcesURI resURI = given
       return $ preprocessLink (resURI { uriPath = uriPath resURI ++ path })
     (matchString "link=" -> Just link) | Just uri <- parseURI link -> do
       uri <- maybe (fail "Could not parse a URI") return $ parseURI link
       return $ preprocessLink uri
     _ -> do
       warn (WUnrecognizedProp $ Text.pack propStr)
-      return pure
+      return return
 
 preprocessLink :: Monad n => URI -> Span -> n Span
 preprocessLink uri = return . Link uri . \case
@@ -139,7 +145,7 @@ preprocessPackage = \case
         return $ Mono packageName
   s      -> do
     warn WInvalidPackage
-    pure s
+    return s
 
 preprocessModule :: MonadState [Warning] n => Span -> n Span
 preprocessModule = \case
@@ -163,11 +169,34 @@ preprocessModule = \case
               warn WInvalidModule
               return $ Mono moduleName
       _ -> fail $ "Could not parse module/package: " ++ show t
-  s      -> do
+  s -> do
     warn WInvalidModule
-    pure s
+    return s
 
-pAnnSpan :: (MonadState [Warning] m, MonadParsec e String m, MonadReader (Depth, ResourcesURI) m) => m Span
+preprocessChapter :: Given TableOfContents => MonadState [Warning] n => Span -> n Span
+preprocessChapter = \case
+  Span chapterId -> do
+    let
+      tUri = "./" <> chapterId <> ".html"
+      mUri = parseURIReference (Text.unpack tUri)
+    case mUri of
+      Just uri -> do
+        let
+          TableOfContents validChapterIds = given
+          chapterId' = ChapterId chapterId
+        if List.elem chapterId' validChapterIds
+          then return $ Link uri (Just $ ChapterRef chapterId')
+          else do
+            warn WInvalidChapter
+            return $ Span chapterId
+      Nothing -> do
+        warn WInvalidChapter
+        return $ Span chapterId
+  s -> do
+    warn WInvalidChapter
+    return s
+
+pAnnSpan :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Span
 pAnnSpan = do
   props1 <- many pSpanProp
   span <- pParenSpan
@@ -176,29 +205,29 @@ pAnnSpan = do
     [] -> return (Parens span)
     props -> foldr (<=<) return props span
 
-pParenSpan :: (MonadState [Warning] m, MonadParsec e String m, MonadReader (Depth, ResourcesURI) m) => m Span
+pParenSpan :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Span
 pParenSpan =
   fromMaybe (Span "") <$>
     between (string "(") (string ")") (optional pSpan)
 
-pSpan1 :: (MonadState [Warning] m, MonadParsec e String m, MonadReader (Depth, ResourcesURI) m) => m Span
+pSpan1 :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Span
 pSpan1 = asum
   [ try pAnnSpan,
     pMonoSpan,
     pMathSpan,
     pTextSpan ]
 
-pSpan :: (MonadState [Warning] m, MonadParsec e String m, MonadReader (Depth, ResourcesURI) m) => m Span
+pSpan :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Span
 pSpan = lexeme $ do
   spans <- some pSpan1
   return $ case spans of
     [span] -> span
     spans' -> Spans spans'
 
-pParagraph :: (MonadState [Warning] m, MonadParsec e String m, MonadReader (Depth, ResourcesURI) m) => m Paragraph
+pParagraph :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Paragraph
 pParagraph = Paragraph <$> pSpan
 
-pPicture :: (MonadState [Warning] m, MonadParsec e String m, MonadReader (Depth, ResourcesURI) m) => m Picture
+pPicture :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Picture
 pPicture = do
   s <- lexeme pAnnSpan
   case s of
@@ -210,7 +239,7 @@ pPicture = do
         return $ Picture link Nothing
     _ -> fail "Pictures are represented as links"
 
-pAnnUnit :: (MonadState [Warning] m, MonadParsec e String m, MonadReader (Depth, ResourcesURI) m) => m Unit
+pAnnUnit :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Unit
 pAnnUnit = do
   unitTy <- try $ lexeme (some upperChar <* char ':')
   case unitTy of
@@ -218,12 +247,12 @@ pAnnUnit = do
     "PICTURE" -> UnitPicture <$> pPicture
     _ -> do
       unitWrap <- case unitTy of
-        "TODO" -> pure UnitTodo
-        "NOTE" -> pure UnitNote
-        "TIP" -> pure UnitTip
+        "TODO" -> return UnitTodo
+        "NOTE" -> return UnitNote
+        "TIP" -> return UnitTip
         _ -> do
           warn $ WUnrecognizedUnit (Text.pack unitTy)
-          pure id
+          return id
       unitWrap <$> pUnit
 
 data TableSep =
@@ -237,14 +266,14 @@ data TableItem =
 
 data TableSection = TableSection [Unit] TableSep
 
-pTableItem :: (MonadState [Warning] m, MonadParsec e String m, MonadReader (Depth, ResourcesURI) m) => m TableItem
+pTableItem :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m TableItem
 pTableItem =
   TableSep TableSepHeader <$ lexeme (string "====") <|>
   TableSep TableSepRow <$ lexeme (string "----") <|>
   TableSep TableSepSubsection <$ lexeme (string "++++") <|>
   TableUnit <$> (lexeme (string "|") *> pUnit)
 
-pTable :: (MonadState [Warning] m, MonadParsec e String m, MonadReader (Depth, ResourcesURI) m) => m Table
+pTable :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Table
 pTable = do
   tableItems <- some pTableItem
   case toTableSections tableItems of
@@ -294,13 +323,13 @@ pSnippet = lexeme $ do
   cs <- manyTill anyChar (string "\n```")
   return $ Snippet (Text.pack cs)
 
-pList :: (MonadState [Warning] m, MonadParsec e String m, MonadReader (Depth, ResourcesURI) m) => m [Unit]
+pList :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m [Unit]
 pList = some $ lexeme (string "*") *> pUnit
 
-pUnits :: (MonadState [Warning] m, MonadParsec e String m, MonadReader (Depth, ResourcesURI) m) => m [Unit]
+pUnits :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m [Unit]
 pUnits = lexeme $ between (lexeme (string "{")) (string "}") (many pUnit)
 
-pUnit :: (MonadState [Warning] m, MonadParsec e String m, MonadReader (Depth, ResourcesURI) m) => m Unit
+pUnit :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Unit
 pUnit = asum
   [ Units <$> pUnits,
     pAnnUnit,
@@ -308,15 +337,15 @@ pUnit = asum
     UnitList <$> pList,
     UnitParagraph <$> pParagraph ]
 
-pSection :: (MonadState [Warning] m, MonadParsec e String m, MonadReader (Depth, ResourcesURI) m) => m Section
+pSection :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Section
 pSection = do
   header <- pHeader
   units <- many pUnit
-  subsections <- local (over _1 incDepth) (many pSection)
+  subsections <- local incDepth (many pSection)
   return $ Section header units subsections
 
-pChapter :: (MonadState [Warning] m, MonadParsec e String m) => ReaderT ResourcesURI m Section
-pChapter = withReaderT (Depth 1,) pSection <* eof
+pChapter :: (MonadState [Warning] m, MonadParsec e String m) => (Given ResourcesURI, Given TableOfContents) => m Section
+pChapter = runReaderT pSection (Depth 1) <* eof
 
 pChapterId :: MonadParsec e String m => m ChapterId
 pChapterId = lexeme $ ChapterId . Text.pack <$> do
@@ -340,11 +369,12 @@ parseTableOfContents filePath s =
     (Text.unpack s)
 
 parseChapter ::
+  TableOfContents ->
   URI ->
   Turtle.FilePath ->
   Text ->
   Either ParseErr (Section, [Warning])
-parseChapter resURI filePath s =
-  parse (runStateT (runReaderT pChapter (ResourcesURI resURI)) [])
+parseChapter toc resURI filePath s =
+  parse (runStateT (give toc (give (ResourcesURI resURI) pChapter)) [])
     (Text.unpack (Turtle.format Turtle.fp filePath))
     (Text.unpack s)

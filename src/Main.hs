@@ -63,7 +63,7 @@ readChapters resURI srcPath tableOfContents =
         chapterPath = srcPath </> chapterFileName
       chapterFileContent <- liftIO $ readTextFile chapterPath
       (section, warnings) <- either handleParseError return $
-        parseChapter resURI chapterPath chapterFileContent
+        parseChapter tableOfContents resURI chapterPath chapterFileContent
       traverse (printf (makeFormat renderWarning % "\n")) warnings
       return section
 
