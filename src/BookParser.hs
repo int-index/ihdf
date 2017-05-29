@@ -90,7 +90,7 @@ pMonoSpan = do
     pMonoChar =
       '\\' <$ string "\\\\" <|>
       '`'  <$ string "\\`"  <|>
-      noneOf @[] "`"
+      noneOf @[] "`\\"
 
 pMathSpan :: MonadParsec e String m => m Span
 pMathSpan = do
