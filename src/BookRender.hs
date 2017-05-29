@@ -35,8 +35,14 @@ metaPreamble = do
     ! A.name "viewport"
     ! A.content "width=device-width, initial-scale=1.0"
 
-renderTableOfContents :: TableOfContents -> H.Html
-renderTableOfContents _ = return () -- TODO
+renderTableOfContents :: Given Book => TableOfContents -> H.Html
+renderTableOfContents (TableOfContents chapterIds) = do
+  H.head $ do
+    metaPreamble
+    H.title "Intermediate Haskell"
+    renderCss cssTableOfContents
+  H.body $ do
+    H.ol $ foldMap (H.li . renderChapterRef False) chapterIds
 
 renderCss :: C.Css -> H.Html
 renderCss = H.style . H.preEscapedToHtml . C.renderWith C.compact []
@@ -96,6 +102,11 @@ cssChapter = do
   ".subsection" ? do
     C.paddingTop (C.em 0.5)
     C.textAlign C.center
+
+cssTableOfContents :: C.Css
+cssTableOfContents = do
+  C.a ? do
+    C.textDecoration C.none
 
 renderSection :: Given Book => Depth -> Section -> H.Html
 renderSection d s = do
@@ -177,15 +188,20 @@ renderHeaderUnit b = \case
 renderURI :: URI -> Text
 renderURI = Text.pack . ($"") . uriToString id
 
-renderChapterRef :: Given Book => ChapterId -> H.Html
-renderChapterRef chapterId = do
-  let mSpan = book ^? bookChapters . at chapterId . _Just . sectionHeader
-  case mSpan of
+renderChapterRef :: Given Book => Bool -> ChapterId -> H.Html
+renderChapterRef withQuotes chapterId = do
+  let mChapterId = given ^. bookChapters . at chapterId
+  case mChapterId of
     Nothing -> error "Invalid chapter id. Couldn't have passed validation in the parser!"
-    Just span -> "“" <> renderSpan span <> "”"
-  where
-    book :: Book
-    book = given
+    Just section ->
+      let
+        span = section ^. sectionHeader
+        tUri = "./" <> (chapterId ^. _ChapterId) <> ".html"
+        addQuotes
+          | withQuotes = \a -> "“" <> a <> "”"
+          | otherwise  = id
+      in
+        addQuotes $ H.a ! A.href (H.toValue tUri) $ renderSpan span
 
 renderSpan :: Given Book => Span -> H.Html
 renderSpan = \case
@@ -195,7 +211,7 @@ renderSpan = \case
   Parens s -> "(" <> renderSpan s <> ")"
   Spans ss -> foldMap renderSpan ss
   Emphasis s -> H.em (renderSpan s)
-  ChapterRef cId -> renderChapterRef cId
+  ChapterRef cId -> renderChapterRef True cId
   Link uri ms ->
     let t = renderURI uri
     in H.a (maybe (H.toHtml t) renderSpan ms) ! A.href (H.toValue t)
@@ -214,7 +230,7 @@ renderBook book = rTableOfContents : rChapters
   where
     rTableOfContents =
       RenderedPage "table-of-contents"
-        (renderPageContent . renderTableOfContents $
+        (renderPageContent . give book renderTableOfContents $
           book ^. bookTableOfContents)
     rChapters =
       Map.toList (book ^. bookChapters) <&> \(chapterId, chapter) ->
