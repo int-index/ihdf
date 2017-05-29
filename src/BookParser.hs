@@ -177,19 +177,11 @@ preprocessChapter :: Given TableOfContents => MonadState [Warning] n => Span -> 
 preprocessChapter = \case
   Span chapterId -> do
     let
-      tUri = "./" <> chapterId <> ".html"
-      mUri = parseURIReference (Text.unpack tUri)
-    case mUri of
-      Just uri -> do
-        let
-          TableOfContents validChapterIds = given
-          chapterId' = ChapterId chapterId
-        if List.elem chapterId' validChapterIds
-          then return $ Link uri (Just $ ChapterRef chapterId')
-          else do
-            warn WInvalidChapter
-            return $ Span chapterId
-      Nothing -> do
+      TableOfContents validChapterIds = given
+      chapterId' = ChapterId chapterId
+    if List.elem chapterId' validChapterIds
+      then return $ ChapterRef chapterId'
+      else do
         warn WInvalidChapter
         return $ Span chapterId
   s -> do
