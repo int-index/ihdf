@@ -22,7 +22,6 @@ import Network.URI
 
 import qualified Text.Megaparsec.Lexer as L
 import qualified Data.List as List
-import qualified Data.List.Split as List
 import qualified Data.Text as Text
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Turtle

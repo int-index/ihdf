@@ -21,13 +21,11 @@ executable ihdf
     blaze-html,
     clay,
     megaparsec,
-    split,
     turtle,
     microlens-platform,
     containers,
     foldl,
     mtl,
-    mmorph,
     optional-args,
     reflection
 
