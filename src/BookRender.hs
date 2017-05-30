@@ -16,7 +16,7 @@ import Text.Blaze.Html5 ((!))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Clay ((?), (-:), (|>))
+import Clay ((?), (|>))
 import qualified Clay as C
 import qualified Clay.Text as C.T
 
@@ -233,13 +233,13 @@ renderChapterRef withQuotes chapterId = do
     Nothing -> error "Invalid chapter id. Couldn't have passed validation in the parser!"
     Just section ->
       let
-        span = section ^. sectionHeader
+        header = section ^. sectionHeader
         tUri = "./" <> unChapterId chapterId <> ".html"
         addQuotes
           | withQuotes = \a -> "“" <> a <> "”"
           | otherwise  = id
       in
-        addQuotes $ H.a ! A.href (H.toValue tUri) $ renderSpan span
+        addQuotes $ H.a ! A.href (H.toValue tUri) $ renderSpan header
 
 renderSpan :: Given Book => Span -> H.Html
 renderSpan = \case

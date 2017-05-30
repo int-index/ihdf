@@ -2,6 +2,7 @@ module Main where
 
 import Prelude hiding (FilePath)
 
+import Data.Foldable
 import Lens.Micro.Platform
 import Network.URI
 import Data.Optional
@@ -64,7 +65,7 @@ readChapters resURI srcPath tableOfContents =
       chapterFileContent <- liftIO $ readTextFile chapterPath
       (section, warnings) <- either handleParseError return $
         parseChapter tableOfContents resURI chapterPath chapterFileContent
-      traverse (printf (makeFormat renderWarning % "\n")) warnings
+      traverse_ (printf (makeFormat renderWarning % "\n")) warnings
       return section
 
 handleParseError :: MonadIO io => ParseErr -> io a

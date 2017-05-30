@@ -5,7 +5,6 @@ import Prelude hiding (FilePath, span)
 import Data.Monoid
 import Data.Foldable
 import Data.Maybe
-import Data.Bifunctor
 import Data.Reflection
 import Data.List.NonEmpty (NonEmpty(..), nonEmpty)
 import Control.Applicative
@@ -13,17 +12,14 @@ import Data.Traversable
 import Control.Monad (void)
 import Control.Monad.Reader
 import Control.Monad.State
-import Lens.Micro.Platform
 import Text.Megaparsec
 import Text.Megaparsec.Prim
-import Text.Megaparsec.String
 import Data.Text (Text)
 import Network.URI
 
 import qualified Text.Megaparsec.Lexer as L
 import qualified Data.List as List
 import qualified Data.Text as Text
-import qualified Data.List.NonEmpty as NonEmpty
 import qualified Turtle
 
 import BookStructure
@@ -115,10 +111,10 @@ pSpanProp = between (string "[") (string "]") $ do
     "package" -> return preprocessPackage
     "module" -> return preprocessModule
     "chapter" -> return preprocessChapter
-    (matchString "res=" -> Just path) -> do
+    (matchString "res=" -> Just resPath) -> do
       let ResourcesURI resURI = given
-      return $ preprocessLink (resURI { uriPath = uriPath resURI ++ path })
-    (matchString "link=" -> Just link) | Just uri <- parseURI link -> do
+      return $ preprocessLink (resURI { uriPath = uriPath resURI ++ resPath })
+    (matchString "link=" -> Just link) -> do
       uri <- maybe (fail "Could not parse a URI") return $ parseURI link
       return $ preprocessLink uri
     _ -> do
@@ -223,8 +219,8 @@ pPicture = do
   s <- lexeme pAnnSpan
   case s of
     Link link comment -> case comment of
-      Nothing       -> return $ Picture link Nothing
-      Just (Span s) -> return $ Picture link (Just s)
+      Nothing        -> return $ Picture link Nothing
+      Just (Span s') -> return $ Picture link (Just s')
       _      -> do
         warn WInvalidPictureCaption
         return $ Picture link Nothing
@@ -310,7 +306,7 @@ pTable = do
 
 pSnippet :: (MonadParsec e String m) => m Snippet
 pSnippet = lexeme $ do
-  string "```\n"
+  void $ string "```\n"
   cs <- manyTill anyChar (string "\n```")
   return $ Snippet (Text.pack cs)
 
