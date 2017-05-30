@@ -138,7 +138,7 @@ preprocessPackage = \case
       _ -> do
         warn WInvalidPackage
         return $ PackageRef packageName
-  s      -> do
+  s -> do
     warn WInvalidPackage
     return s
 
