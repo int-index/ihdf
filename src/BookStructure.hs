@@ -21,6 +21,8 @@ data Span =
   Spans [Span] |
   Emphasis Span |
   ChapterRef ChapterId |
+  PackageRef Text |
+  ModuleRef Text |
   Link URI (Maybe Span)
   deriving (Eq, Show)
 
