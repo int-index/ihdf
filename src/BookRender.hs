@@ -2,7 +2,7 @@ module BookRender where
 
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Control.Lens
+import Lens.Micro.Platform
 import qualified Data.Map as Map
 import Network.URI
 import Data.Monoid
@@ -196,7 +196,7 @@ renderChapterRef withQuotes chapterId = do
     Just section ->
       let
         span = section ^. sectionHeader
-        tUri = "./" <> (chapterId ^. _ChapterId) <> ".html"
+        tUri = "./" <> unChapterId chapterId <> ".html"
         addQuotes
           | withQuotes = \a -> "“" <> a <> "”"
           | otherwise  = id
@@ -234,5 +234,5 @@ renderBook book = rTableOfContents : rChapters
           book ^. bookTableOfContents)
     rChapters =
       Map.toList (book ^. bookChapters) <&> \(chapterId, chapter) ->
-        RenderedPage (chapterId ^. _ChapterId)
+        RenderedPage (unChapterId chapterId)
           (renderPageContent . give book renderChapter $ chapter)

@@ -23,7 +23,7 @@ executable ihdf
     megaparsec,
     split,
     turtle,
-    lens,
+    microlens-platform,
     containers,
     foldl,
     mtl,

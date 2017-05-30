@@ -13,7 +13,7 @@ import Data.Traversable
 import Control.Monad (void)
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Lens hiding (noneOf)
+import Lens.Micro.Platform
 import Text.Megaparsec
 import Text.Megaparsec.Prim
 import Text.Megaparsec.String

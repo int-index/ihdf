@@ -2,7 +2,7 @@ module Main where
 
 import Prelude hiding (FilePath)
 
-import Control.Lens
+import Lens.Micro.Platform
 import Network.URI
 import Data.Optional
 import Turtle
@@ -59,7 +59,7 @@ readChapters resURI srcPath tableOfContents =
     chapterId <- select $ tableOfContents ^. tocChapters
     (chapterId,) <$> do
       let
-        chapterFileName = fromText ((chapterId ^. _ChapterId) <> ".ihdf")
+        chapterFileName = fromText (unChapterId chapterId) <> ".ihdf"
         chapterPath = srcPath </> chapterFileName
       chapterFileContent <- liftIO $ readTextFile chapterPath
       (section, warnings) <- either handleParseError return $

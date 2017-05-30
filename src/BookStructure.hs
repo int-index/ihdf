@@ -3,17 +3,15 @@ module BookStructure where
 import Data.Map (Map)
 import Data.Text
 import Network.URI
-import Control.Lens
+import Lens.Micro.Platform
 
 newtype Depth = Depth Int
 
 incDepth :: Depth -> Depth
 incDepth (Depth n) = Depth (n+1)
 
-newtype ChapterId = ChapterId Text
+newtype ChapterId = ChapterId { unChapterId :: Text }
   deriving (Eq, Ord, Show)
-
-makePrisms ''ChapterId
 
 data Span =
   Span Text |
