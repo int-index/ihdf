@@ -60,7 +60,7 @@ readChapters resURI srcPath tableOfContents =
     chapterId <- select $ tableOfContents ^. tocChapters
     (chapterId,) <$> do
       let
-        chapterFileName = fromText (unChapterId chapterId) <> ".ihdf"
+        chapterFileName = fromText (unChapterId chapterId <> ".ihdf")
         chapterPath = srcPath </> chapterFileName
       chapterFileContent <- liftIO $ readTextFile chapterPath
       (section, warnings) <- either handleParseError return $
