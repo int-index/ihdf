@@ -164,7 +164,7 @@ cssTableOfContents = do
     C.justifyContent C.flexEnd
     C.marginRight (C.em 1)
   ".todo" <> ".kb-size" ? do
-    C.width (C.em 4)
+    C.width (C.em 4.5)
     C.textAlign (C.alignSide C.sideRight)
   C.meter ? do
     C.outline C.solid (C.px 1) (C.grayish 0xcd)
