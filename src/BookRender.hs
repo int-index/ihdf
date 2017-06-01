@@ -168,13 +168,15 @@ cssTableOfContents = do
     C.textAlign (C.alignSide C.sideRight)
   C.meter ? do
     C.outline C.solid (C.px 1) (C.grayish 0xcd)
+  -- Firefox
+  C.meter # "::-moz-meter-bar" ? do
+    C.background (C.rgb 0x78 0xca 0x8d)
+  C.meter ? do
+    C.background C.white
+  -- Chrome
   C.meter # "::-webkit-meter-optimum-value" ? do
     C.background (C.rgb 0x78 0xca 0x8d)
-  C.meter # "::-moz-meter-optimum-value" ? do
-    C.background (C.rgb 0x78 0xca 0x8d)
   C.meter # "::-webkit-meter-bar" ? do
-    C.background C.white
-  C.meter # "::-moz-meter-bar" ? do
     C.background C.white
 
 renderSection :: Given Book => Depth -> Section -> H.Html
