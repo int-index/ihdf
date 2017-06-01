@@ -12,13 +12,14 @@ import Data.Foldable
 import qualified Data.List as List
 import Data.Reflection
 import Data.Generics.Uniplate.Data
+import Control.Monad
 
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import Text.Blaze.Html5 ((!))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Clay ((?), (|>))
+import Clay ((?), (|>), (#))
 import qualified Clay as C
 import qualified Clay.Text as C.T
 
@@ -43,6 +44,7 @@ renderTableOfContents (TableOfContents chapterIds) = do
   H.head $ do
     metaPreamble
     H.title "Intermediate Haskell"
+    linkCss "https://fonts.googleapis.com/css?family=PT+Serif:400,700,400italic,700italic&subset=latin,cyrillic"
     renderCss cssTableOfContents
   H.body $ do
     H.ol $ foldMap renderTocEntry chapterIds
@@ -150,12 +152,30 @@ cssTableOfContents = do
     C.width (C.em 45)
   C.a ? do
     C.textDecoration C.none
+  C.li ? do
+    C.marginTop (C.px 8)
+    C.paddingLeft (C.px 5)
   ".progress" ? do
     C.float C.floatRight
-    ".explanation" ? do
-      C.marginRight (C.em 1)
-      C.fontSize (C.px 10)
-      C.fontFamily [] [C.monospace]
+    C.fontSize (C.em 0.9)
+    C.fontFamily ["Ubuntu Mono"] [C.monospace]
+  ".explanation" ? do
+    C.display C.inlineFlex
+    C.justifyContent C.flexEnd
+    C.marginRight (C.em 1)
+  ".todo" <> ".kb-size" ? do
+    C.width (C.em 4)
+    C.textAlign (C.alignSide C.sideRight)
+  C.meter ? do
+    C.outline C.solid (C.px 1) (C.grayish 0xcd)
+  C.meter # "::-webkit-meter-optimum-value" ? do
+    C.background (C.rgb 0x78 0xca 0x8d)
+  C.meter # "::-moz-meter-optimum-value" ? do
+    C.background (C.rgb 0x78 0xca 0x8d)
+  C.meter # "::-webkit-meter-bar" ? do
+    C.background C.white
+  C.meter # "::-moz-meter-bar" ? do
+    C.background C.white
 
 renderSection :: Given Book => Depth -> Section -> H.Html
 renderSection d s = do
@@ -269,22 +289,19 @@ renderChapterProgress chapterId =
     section = getChapterContent chapterId
     size, relativeSize :: Double
     size = fromIntegral (sum $ map Text.length $ universeBi section) / 1024
+    kbSize =
+      showFFloat (Just (if size < 10 then 1 else 0)) size " kB"
     relativeSize = sqrt (size / 100)
     todos = length [u | UnitTodo u <- universeBi section]
   in
-    H.span ! A.class_ "progress" $ mconcat
-      [ H.span ! A.class_ "explanation" $
-          H.toHtml $ concat $ concat
-            [ if todos == 0 then [] else
-                [ show todos
-                , " TODO", ['s' | todos `mod` 10 /= 1 || todos == 11]
-                , " | " ]
-            , let n | size < 9.95 = showFFloat (Just 1) size ""
-                    | otherwise   = showFFloat (Just 0) size ""
-              in [ replicate (3 - length n) '\160', n, " kB" ]
-            ]
-      , H.meter ! A.value (H.toValue relativeSize) $ ""
-      ]
+    H.span ! A.class_ "progress" $ do
+      H.span ! A.class_ "explanation" $ do
+        when (todos > 0) $ H.span ! A.class_ "todo" $
+          H.toHtml (shows todos " TODO")
+        H.span ! A.class_ "kb-size" $
+          H.toHtml kbSize
+      H.meter ! A.value (H.toValue relativeSize) $ ""
+
 
 renderSpan :: Given Book => Span -> H.Html
 renderSpan = \case
