@@ -1,5 +1,6 @@
 module BookRender where
 
+import Numeric
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Lens.Micro.Platform
@@ -10,6 +11,7 @@ import Data.String
 import Data.Foldable
 import qualified Data.List as List
 import Data.Reflection
+import Data.Generics.Uniplate.Data
 
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import Text.Blaze.Html5 ((!))
@@ -43,7 +45,11 @@ renderTableOfContents (TableOfContents chapterIds) = do
     H.title "Intermediate Haskell"
     renderCss cssTableOfContents
   H.body $ do
-    H.ol $ foldMap (H.li . renderChapterRef False) chapterIds
+    H.ol $ foldMap renderTocEntry chapterIds
+  where
+    renderTocEntry chapterId = H.li $
+      renderChapterRef False chapterId <>
+      renderChapterProgress chapterId
 
 renderCss :: C.Css -> H.Html
 renderCss = H.style . H.preEscapedToHtml . C.renderWith C.compact []
@@ -137,8 +143,19 @@ cssChapter = do
 
 cssTableOfContents :: C.Css
 cssTableOfContents = do
+  C.body ? do
+    C.sym C.margin C.auto
+    C.position C.relative
+    C.fontFamily ["PT Serif"] [C.serif]
+    C.width (C.em 45)
   C.a ? do
     C.textDecoration C.none
+  ".progress" ? do
+    C.float C.floatRight
+    ".explanation" ? do
+      C.marginRight (C.em 1)
+      C.fontSize (C.px 10)
+      C.fontFamily [] [C.monospace]
 
 renderSection :: Given Book => Depth -> Section -> H.Html
 renderSection d s = do
@@ -226,20 +243,48 @@ renderHeaderUnit b = \case
 renderURI :: URI -> Text
 renderURI = Text.pack . ($"") . uriToString id
 
+-- Will 'error' if the chapter doesn't exist
+getChapterContent :: Given Book => ChapterId -> Section
+getChapterContent chapterId =
+  case given ^. bookChapters . at chapterId of
+    Just s  -> s
+    Nothing -> error "Invalid chapter id. Couldn't have passed \
+                     \validation in the parser!"
+
 renderChapterRef :: Given Book => Bool -> ChapterId -> H.Html
-renderChapterRef withQuotes chapterId = do
-  let mChapterId = given ^. bookChapters . at chapterId
-  case mChapterId of
-    Nothing -> error "Invalid chapter id. Couldn't have passed validation in the parser!"
-    Just section ->
-      let
-        header = section ^. sectionHeader
-        tUri = "./" <> unChapterId chapterId <> ".html"
-        addQuotes
-          | withQuotes = \a -> "“" <> a <> "”"
-          | otherwise  = id
-      in
-        addQuotes $ H.a ! A.href (H.toValue tUri) $ renderSpan header
+renderChapterRef withQuotes chapterId =
+  let
+    section = getChapterContent chapterId
+    header = section ^. sectionHeader
+    tUri = "./" <> unChapterId chapterId <> ".html"
+    addQuotes
+      | withQuotes = \a -> "“" <> a <> "”"
+      | otherwise  = id
+  in
+    addQuotes $ H.a ! A.href (H.toValue tUri) $ renderSpan header
+
+renderChapterProgress :: Given Book => ChapterId -> H.Html
+renderChapterProgress chapterId =
+  let
+    section = getChapterContent chapterId
+    size, relativeSize :: Double
+    size = fromIntegral (sum $ map Text.length $ universeBi section) / 1024
+    relativeSize = sqrt (size / 100)
+    todos = length [u | UnitTodo u <- universeBi section]
+  in
+    H.span ! A.class_ "progress" $ mconcat
+      [ H.span ! A.class_ "explanation" $
+          H.toHtml $ concat $ concat
+            [ if todos == 0 then [] else
+                [ show todos
+                , " TODO", ['s' | todos `mod` 10 /= 1 || todos == 11]
+                , " | " ]
+            , let n | size < 9.95 = showFFloat (Just 1) size ""
+                    | otherwise   = showFFloat (Just 0) size ""
+              in [ replicate (3 - length n) '\160', n, " kB" ]
+            ]
+      , H.meter ! A.value (H.toValue relativeSize) $ ""
+      ]
 
 renderSpan :: Given Book => Span -> H.Html
 renderSpan = \case

@@ -16,18 +16,19 @@ executable ihdf
 
   build-depends:
     base >=4.9 && <4.10,
-    network-uri,
-    text,
     blaze-html,
     clay,
-    megaparsec,
-    turtle,
-    microlens-platform,
     containers,
     foldl,
+    megaparsec,
+    microlens-platform,
     mtl,
+    network-uri,
     optional-args,
-    reflection
+    reflection,
+    text,
+    turtle,
+    uniplate
 
   hs-source-dirs:
     src
@@ -42,9 +43,10 @@ executable ihdf
     BangPatterns
     ConstraintKinds
     DataKinds
-    DeriveGeneric
-    DeriveFunctor
+    DeriveDataTypeable
     DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
     DeriveTraversable
     FlexibleContexts
     FlexibleInstances
