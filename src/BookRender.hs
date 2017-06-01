@@ -76,6 +76,7 @@ renderChapter s = do
     renderCss cssChapter
   H.body $ do
     H.main $ do
+      H.a ! A.href "./table-of-contents.html" $ "⮌ Table of Contents"
       renderSection (Depth 1) s
 
 colorNote :: C.Color
@@ -95,7 +96,7 @@ cssChapter = do
   C.star ? C.boxSizing C.inherit
   C.body ? do
     C.sym C.margin C.auto
-    C.position C.relative
+    C.paddingTop (C.em 2)
     C.fontFamily ["PT Serif"] [C.serif]
     C.width (C.em 50)
   C.code ? do
