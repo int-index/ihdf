@@ -38,6 +38,9 @@ metaPreamble = do
   H.meta
     ! A.name "viewport"
     ! A.content "width=device-width, initial-scale=1.0"
+  H.meta
+    ! A.name "robots"
+    ! A.content "noindex"
 
 renderTableOfContents :: Given Book => TableOfContents -> H.Html
 renderTableOfContents (TableOfContents chapterIds) = do
