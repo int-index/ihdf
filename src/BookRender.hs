@@ -98,9 +98,11 @@ cssChapter = do
     C.sym C.margin C.auto
     C.paddingTop (C.em 2)
     C.fontFamily ["PT Serif"] [C.serif]
+    C.lineHeight (C.unitless 1.6)
     C.width (C.em 50)
   C.code ? do
     C.whiteSpace C.nowrap
+    C.lineHeight (C.unitless 1.3)
     C.outline C.solid (C.px 1) (C.grayish 0xcd)
     C.sym2 C.padding (C.em 0.1) (C.em 0.3)
   (".package-name" <> ".module-name" <> C.code) ? do
