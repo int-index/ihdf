@@ -3,6 +3,7 @@ module BookRender where
 import Numeric
 import Data.Text (Text)
 import qualified Data.Text as Text
+import qualified Data.Text.Lazy as Text (toStrict)
 import Lens.Micro.Platform
 import qualified Data.Map as Map
 import Network.URI
@@ -13,6 +14,7 @@ import qualified Data.List as List
 import Data.Reflection
 import Data.Generics.Uniplate.Data
 import Control.Monad
+import Data.FileEmbed
 
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import Text.Blaze.Html5 ((!))
@@ -25,12 +27,7 @@ import qualified Clay.Text as C.T
 
 import BookStructure
 
-linkCss :: H.AttributeValue -> H.Html
-linkCss href = do
-  H.link
-    ! A.href href
-    ! A.rel "stylesheet"
-    ! A.type_ "text/css"
+data Theme = LightMode | DarkMode
 
 metaPreamble :: H.Html
 metaPreamble = do
@@ -42,13 +39,23 @@ metaPreamble = do
     ! A.name "robots"
     ! A.content "noindex"
 
+linkThemeCss :: H.Html
+linkThemeCss = do
+  H.link
+    ! A.id "theme-link"
+    ! A.href "./loading.css"
+    ! A.rel "stylesheet"
+    ! A.type_ "text/css"
+
 renderTableOfContents :: Given Book => TableOfContents -> H.Html
 renderTableOfContents (TableOfContents chapterIds) = do
   H.head $ do
     metaPreamble
+    linkThemeCss
     H.title "Intermediate Haskell"
-    linkCss "https://fonts.googleapis.com/css?family=PT+Serif:400,700,400italic,700italic&subset=latin,cyrillic"
-    renderCss cssTableOfContents
+    H.script ""
+      ! A.type_ "text/javascript"
+      ! A.src "./toc.js"
   H.body $ do
     H.ol $ foldMap renderTocEntry chapterIds
   where
@@ -56,13 +63,17 @@ renderTableOfContents (TableOfContents chapterIds) = do
       renderChapterRef False chapterId <>
       renderChapterProgress chapterId
 
-renderCss :: C.Css -> H.Html
-renderCss = H.style . H.preEscapedToHtml . C.renderWith C.compact []
+renderNav :: H.Html
+renderNav = H.nav $ do
+  H.a ! A.href "./table-of-contents.html" $ "⮌ Table of Contents"
+  H.a ! A.href "#" ! A.onclick "dark();" ! A.class_ "theme-button-to-dark" $ "Dark Mode"
+  H.a ! A.href "#" ! A.onclick "light();" ! A.class_ "theme-button-to-light" $ "Light Mode"
 
 renderChapter :: Given Book => Section -> H.Html
 renderChapter s = do
   H.head $ do
     metaPreamble
+    linkThemeCss
     H.title . renderSpan $ s ^. sectionHeader
     H.script ! A.type_ "text/x-mathjax-config" $ do
       "  MathJax.Hub.Config({ \
@@ -72,41 +83,109 @@ renderChapter s = do
     H.script ""
       ! A.type_ "text/javascript"
       ! A.src "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js"
-    linkCss "https://fonts.googleapis.com/css?family=PT+Serif:400,700,400italic,700italic&subset=latin,cyrillic"
-    renderCss cssChapter
+    H.script ""
+      ! A.type_ "text/javascript"
+      ! A.src "./chapter.js"
   H.body $ do
-    H.main $ do
-      H.a ! A.href "./table-of-contents.html" $ "⮌ Table of Contents"
-      renderSection (Depth 1) s
+    renderNav
+    H.main $ renderSection (Depth 1) s
+    renderNav
 
-colorNote :: C.Color
-colorNote = C.rgb 0x3f 0x9b 0xbe
+colorBackground :: Given Theme => C.Color
+colorBackground = case given @Theme of
+  LightMode -> C.white
+  DarkMode -> C.grayish 0x31
 
-colorTodo :: C.Color
-colorTodo = C.red
+colorText :: Given Theme => C.Color
+colorText = case given @Theme of
+  LightMode -> C.black
+  DarkMode -> C.grayish 0xc0
 
-colorTip :: C.Color
-colorTip = C.rgb 0x26 0xc7 0x26
+colorOutline :: Given Theme => C.Color
+colorOutline = case given @Theme of
+  LightMode -> C.grayish 0xcd
+  DarkMode -> C.grayish 0x53
 
-cssChapter :: C.Css
+colorNote :: Given Theme => C.Color
+colorNote = case given @Theme of
+  LightMode -> C.rgb 0x3f 0x9b 0xbe
+  DarkMode -> C.rgb 0x74 0xa4 0xb7
+
+colorTodo :: Given Theme => C.Color
+colorTodo = case given @Theme of
+  LightMode -> C.red
+  DarkMode -> C.rgb 0xb9 0x74 0x74
+
+colorTip :: Given Theme => C.Color
+colorTip = case given @Theme of
+  LightMode -> C.rgb 0x26 0xc7 0x26
+  DarkMode -> C.rgb 0x6f 0xa1 0x6f
+
+cssFonts :: Given Theme => (C.Css, C.Css, C.Css)
+cssFonts = (googleFonts theme, baseFont theme, monoFont)
+  where
+    theme = given @Theme
+    baseFont LightMode = C.fontFamily ["PT Serif"] [C.serif]
+    baseFont DarkMode  = C.fontFamily ["Ubuntu"] [C.sansSerif]
+    monoFont =
+      C.fontFamily ["Ubuntu Mono"] [C.monospace]
+    googleFonts LightMode = C.importUrl
+      "https://fonts.googleapis.com/css?\
+      \family=PT+Serif:400,400i,700|Ubuntu+Mono:400,400i,700;"
+    googleFonts DarkMode  = C.importUrl
+      "https://fonts.googleapis.com/css?\
+      \family=Ubuntu:400,400i,700|Ubuntu+Mono:400,400i,700;"
+
+cssFontColor :: Given Theme => C.Css
+cssFontColor = case given @Theme of
+  LightMode -> C.color C.black
+  DarkMode -> C.color (C.grayish 0xc0)
+
+cssLinks :: Given Theme => C.Css
+cssLinks = do
+  C.a ? C.textDecoration C.none
+  case given @Theme of
+    LightMode -> return ()
+    DarkMode -> do
+      C.a # ":link" ? C.color (C.rgb 0x8e 0x9d 0xb4)
+      C.a # ":visited" ? C.color (C.rgb 0x9b 0x84 0xad)
+
+cssThemeButton :: Given Theme => C.Css
+cssThemeButton = case given @Theme of
+  LightMode -> ".theme-button-to-light" ? C.display C.none
+  DarkMode  -> ".theme-button-to-dark" ? C.display C.none
+
+cssChapter :: Given Theme => C.Css
 cssChapter = do
+  let (cssGoogleFonts, cssBaseFont, cssMonoFont) = cssFonts
+  cssGoogleFonts
+  cssThemeButton
   C.html ? do
     C.boxSizing C.borderBox
     C.sym C.margin C.nil
   C.star ? C.boxSizing C.inherit
+  C.nav ? do
+    C.display C.flex
+    C.justifyContent C.spaceBetween
+    C.border C.solid (C.px 1) colorOutline
+    C.sym C.padding (C.em 1)
+    C.a # ":link" <> C.a # ":visited" ? C.color C.inherit
   C.body ? do
     C.sym C.margin C.auto
     C.paddingTop (C.em 2)
-    C.fontFamily ["PT Serif"] [C.serif]
     C.lineHeight (C.unitless 1.6)
+    cssBaseFont
+    C.background colorBackground
+    C.color colorText
     C.width (C.em 50)
+  cssLinks
   C.code ? do
     C.whiteSpace C.nowrap
     C.lineHeight (C.unitless 1.3)
-    C.outline C.solid (C.px 1) (C.grayish 0xcd)
+    C.outline C.solid (C.px 1) colorOutline
     C.sym2 C.padding (C.em 0.1) (C.em 0.3)
   (".package-name" <> ".module-name" <> C.code) ? do
-    C.fontFamily ["Ubuntu Mono"] [C.monospace]
+    cssMonoFont
   C.legend ? do
     C.marginBottom (C.em (-0.5))
     C.textAlign C.center
@@ -114,7 +193,7 @@ cssChapter = do
   ".snippet" ? do
     C.display C.block
     C.outlineStyle C.none
-    C.borderLeft C.solid (C.px 2) (C.grayish 0xcd)
+    C.borderLeft C.solid (C.px 2) colorOutline
     C.whiteSpace C.T.pre
     C.padding (C.em 0.5) (C.em 0.5) (C.em 0.5) (C.em 1)
     C.marginTop (C.em 1)
@@ -142,29 +221,52 @@ cssChapter = do
     (C.marginTop <> C.marginLeft) (C.em 1)
     C.borderCollapse C.collapse
   C.thead ? do
-    C.borderBottom C.solid (C.px 1) (C.grayish 0xcd)
+    C.borderBottom C.solid (C.px 1) colorOutline
   (C.td <> C.th) ? do
     (C.paddingLeft <> C.paddingRight) (C.em 0.5)
   ".subsection" ? do
     C.paddingTop (C.em 0.5)
     C.textAlign C.center
 
-cssTableOfContents :: C.Css
+colorMeter :: Given Theme => C.Color
+colorMeter = case given @Theme of
+  LightMode -> C.rgb 0x78 0xca 0x8d
+  DarkMode -> C.rgb 0x78 0xca 0x8d
+
+cssMeter :: Given Theme => C.Css
+cssMeter = do
+  C.meter ? do
+    C.outline C.solid (C.px 1) colorOutline
+  -- Firefox
+  C.meter # "::-moz-meter-bar" ? do
+    C.background colorMeter
+  C.meter ? do
+    C.background colorBackground
+  -- Chrome
+  C.meter # "::-webkit-meter-optimum-value" ? do
+    C.background colorMeter
+  C.meter # "::-webkit-meter-bar" ? do
+    C.background colorBackground
+
+cssTableOfContents :: Given Theme => C.Css
 cssTableOfContents = do
+  let (cssGoogleFonts, cssBaseFont, cssMonoFont) = cssFonts
+  cssGoogleFonts
   C.body ? do
     C.sym C.margin C.auto
     C.position C.relative
-    C.fontFamily ["PT Serif"] [C.serif]
+    cssBaseFont
+    C.background colorBackground
+    C.color colorText
     C.width (C.em 45)
-  C.a ? do
-    C.textDecoration C.none
+  cssLinks
   C.li ? do
     C.marginTop (C.px 8)
     C.paddingLeft (C.px 5)
   ".progress" ? do
     C.float C.floatRight
     C.fontSize (C.em 0.9)
-    C.fontFamily ["Ubuntu Mono"] [C.monospace]
+    cssMonoFont
   ".explanation" ? do
     C.display C.inlineFlex
     C.justifyContent C.flexEnd
@@ -172,18 +274,7 @@ cssTableOfContents = do
   ".todo" <> ".kb-size" ? do
     C.width (C.em 4.5)
     C.textAlign (C.alignSide C.sideRight)
-  C.meter ? do
-    C.outline C.solid (C.px 1) (C.grayish 0xcd)
-  -- Firefox
-  C.meter # "::-moz-meter-bar" ? do
-    C.background (C.rgb 0x78 0xca 0x8d)
-  C.meter ? do
-    C.background C.white
-  -- Chrome
-  C.meter # "::-webkit-meter-optimum-value" ? do
-    C.background (C.rgb 0x78 0xca 0x8d)
-  C.meter # "::-webkit-meter-bar" ? do
-    C.background C.white
+  cssMeter
 
 renderSection :: Given Book => Depth -> Section -> H.Html
 renderSection d s = do
@@ -330,23 +421,43 @@ renderSpan = \case
     let t = renderURI uri
     in H.a (maybe (H.toHtml t) renderSpan ms) ! A.href (H.toValue t)
 
-data RenderedPage =
-  RenderedPage {
-    _renderedPageName :: Text,
-    _renderedPageContent :: Text
+renderCss :: Theme -> (Given Theme => C.Css) -> Text
+renderCss theme css =
+  Text.toStrict . C.renderWith C.compact [] $
+    give theme css
+
+data Rendered =
+  Rendered {
+    _renderedExt :: Text,
+    _renderedName :: Text,
+    _renderedContent :: Text
   } deriving (Eq, Show)
 
 renderPageContent :: H.Html -> Text
 renderPageContent = Text.pack . renderHtml . H.docTypeHtml
 
-renderBook :: Book -> [RenderedPage]
-renderBook book = rTableOfContents : rChapters
+renderBook :: Book -> [Rendered]
+renderBook book = rTableOfContents : rChapters ++ rStaticResources
   where
+
+    rTableOfContents :: Rendered
     rTableOfContents =
-      RenderedPage "table-of-contents"
+      Rendered "html" "table-of-contents"
         (renderPageContent . give book renderTableOfContents $
           book ^. bookTableOfContents)
+
+    rChapters :: [Rendered]
     rChapters =
       Map.toList (book ^. bookChapters) <&> \(chapterId, chapter) ->
-        RenderedPage (unChapterId chapterId)
+        Rendered "html" (unChapterId chapterId)
           (renderPageContent . give book renderChapter $ chapter)
+
+    rStaticResources :: [Rendered]
+    rStaticResources =
+      [ Rendered "js" "toc" $(embedStringFile "src/toc.js"),
+        Rendered "js" "chapter" $(embedStringFile "src/chapter.js"),
+        Rendered "css" "loading" "body { display: none }",
+        Rendered "css" "toc-light" (renderCss LightMode cssTableOfContents),
+        Rendered "css" "toc-dark" (renderCss DarkMode cssTableOfContents),
+        Rendered "css" "chapter-light" (renderCss LightMode cssChapter),
+        Rendered "css" "chapter-dark" (renderCss DarkMode cssChapter) ]

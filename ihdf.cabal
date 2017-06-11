@@ -28,6 +28,7 @@ executable ihdf
     reflection,
     text,
     turtle,
+    file-embed,
     uniplate
 
   hs-source-dirs:

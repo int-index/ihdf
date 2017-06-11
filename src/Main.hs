@@ -43,7 +43,8 @@ main = do
     (opts ^. optsResources)
     (opts ^. optsSource)
     tableOfContents
-  writeBook (opts ^. optsOutput) $ Book tableOfContents chapters
+  let book = Book tableOfContents chapters
+  writeBook (opts ^. optsOutput) book
 
 readTableOfContents :: FilePath -> IO TableOfContents
 readTableOfContents srcPath = do
@@ -76,6 +77,6 @@ handleParseError parseError = do
 writeBook :: FilePath -> Book -> IO ()
 writeBook outPath book = sh $ do
   mktree outPath
-  RenderedPage outFileName outFileContent <- select $ renderBook book
-  let outFilePath = outPath </> fromText (outFileName <> ".html")
+  Rendered outFileExt outFileName outFileContent <- select $ renderBook book
+  let outFilePath = outPath </> fromText (outFileName <> "." <> outFileExt)
   liftIO $ writeTextFile outFilePath outFileContent
