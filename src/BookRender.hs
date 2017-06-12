@@ -189,6 +189,7 @@ cssChapterCommon = do
     C.paddingTop (C.em 2)
     C.lineHeight (C.unitless 1.6)
     C.width (C.em 50)
+    C.maxWidth (C.vw 90)
   C.code ? do
     C.whiteSpace C.nowrap
     C.lineHeight (C.unitless 1.3)
