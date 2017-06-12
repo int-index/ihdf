@@ -60,6 +60,7 @@ renderTableOfContents :: Given Book => TableOfContents -> H.Html
 renderTableOfContents (TableOfContents chapterIds) = do
   H.head $ do
     metaPreamble
+    linkCss "./toc-common.css"
     linkCss "./toc-light.css" ! A.id "theme-link"
     H.title "Intermediate Haskell"
     H.script ""
@@ -272,7 +273,7 @@ colorMeter = case given @Theme of
 cssMeter :: Given Theme => C.Css
 cssMeter = do
   C.meter ? do
-    C.outline C.solid (C.px 1) colorOutline
+    C.outlineColor colorOutline
   -- Firefox
   C.meter # "::-moz-meter-bar" ? do
     C.background colorMeter
@@ -284,25 +285,19 @@ cssMeter = do
   C.meter # "::-webkit-meter-bar" ? do
     C.background colorBackground
 
-cssTableOfContents :: Given Theme => C.Css
-cssTableOfContents = do
-  let (cssBaseFont, cssMonoFont) = cssFonts
+cssTableOfContentsCommon :: C.Css
+cssTableOfContentsCommon = do
   cssGoogleFonts
   C.body ? do
     C.sym C.margin C.auto
     C.position C.relative
-    cssBaseFont
-    C.background colorBackground
-    C.color colorText
     C.width (C.em 45)
-  cssLinks
   C.li ? do
     C.marginTop (C.px 8)
     C.paddingLeft (C.px 5)
   ".progress" ? do
     C.float C.floatRight
     C.fontSize (C.em 0.9)
-    cssMonoFont
   ".explanation" ? do
     C.display C.inlineFlex
     C.justifyContent C.flexEnd
@@ -310,6 +305,20 @@ cssTableOfContents = do
   ".todo" <> ".kb-size" ? do
     C.width (C.em 4.5)
     C.textAlign (C.alignSide C.sideRight)
+  C.meter ? do
+    C.outline C.solid (C.px 1) C.transparent
+
+cssTableOfContents :: Given Theme => C.Css
+cssTableOfContents = do
+  let (cssBaseFont, cssMonoFont) = cssFonts
+  cssGoogleFonts
+  C.body ? do
+    cssBaseFont
+    C.background colorBackground
+    C.color colorText
+  cssLinks
+  ".progress" ? do
+    cssMonoFont
   cssMeter
 
 renderSection :: Given Book => Depth -> Section -> H.Html
@@ -493,6 +502,7 @@ renderBook book = rTableOfContents : rChapters ++ rStaticResources
     rStaticResources =
       [ Rendered "js" "toc" $(embedStringFile "src/toc.js"),
         Rendered "js" "chapter" $(embedStringFile "src/chapter.js"),
+        Rendered "css" "toc-common" (renderCss cssTableOfContentsCommon),
         Rendered "css" "toc-light" (renderThemeCss LightMode cssTableOfContents),
         Rendered "css" "toc-dark" (renderThemeCss DarkMode cssTableOfContents),
         Rendered "css" "chapter" (renderCss cssChapterCommon),

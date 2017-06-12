@@ -1,17 +1,17 @@
 function light() {
-  sessionStorage.setItem("theme", "light");
+  localStorage.setItem("theme", "light");
   document.getElementById("theme-link").href="./chapter-light.css"
 }
 
 function dark() {
-  sessionStorage.setItem("theme", "dark");
+  localStorage.setItem("theme", "dark");
   document.getElementById("theme-link").href="./chapter-dark.css"
 }
 
 def_theme = light;
 
 function loadTheme() {
-  var theme = sessionStorage.getItem("theme");
+  var theme = localStorage.getItem("theme");
   if (theme === "light") {
     light();
   } else if (theme === "dark") {
