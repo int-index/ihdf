@@ -280,6 +280,7 @@ cssMeter = do
 cssTableOfContents :: Given Theme => C.Css
 cssTableOfContents = do
   let (cssBaseFont, cssMonoFont) = cssFonts
+  cssGoogleFonts
   C.body ? do
     C.sym C.margin C.auto
     C.position C.relative
