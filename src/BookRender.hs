@@ -47,6 +47,16 @@ linkThemeCss = do
     ! A.rel "stylesheet"
     ! A.type_ "text/css"
 
+linkFontawesomeCss :: H.Html
+linkFontawesomeCss = do
+  H.link
+    ! A.href "https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"
+    ! A.rel "stylesheet"
+    ! A.type_ "text/css"
+
+renderIcon :: H.AttributeValue -> H.Html
+renderIcon attr = H.i ! A.class_ attr $ ""
+
 renderTableOfContents :: Given Book => TableOfContents -> H.Html
 renderTableOfContents (TableOfContents chapterIds) = do
   H.head $ do
@@ -65,15 +75,19 @@ renderTableOfContents (TableOfContents chapterIds) = do
 
 renderNav :: H.Html
 renderNav = H.nav $ do
-  H.a ! A.href "./table-of-contents.html" $ "⮌ Table of Contents"
-  H.a ! A.href "#" ! A.onclick "dark();" ! A.class_ "theme-button-to-dark" $ "Dark Mode"
-  H.a ! A.href "#" ! A.onclick "light();" ! A.class_ "theme-button-to-light" $ "Light Mode"
+  H.a ! A.href "./table-of-contents.html" $
+    renderIcon "fa fa-home icon-left" <> "Table of Contents"
+  H.a ! A.href "#" ! A.onclick "dark();" ! A.class_ "theme-button-to-dark" $
+    renderIcon "fa fa-moon-o icon-left" <> "Dark Mode"
+  H.a ! A.href "#" ! A.onclick "light();" ! A.class_ "theme-button-to-light" $
+    renderIcon "fa fa-lightbulb-o icon-left" <> "Light Mode"
 
 renderChapter :: Given Book => Section -> H.Html
 renderChapter s = do
   H.head $ do
     metaPreamble
     linkThemeCss
+    linkFontawesomeCss
     H.title . renderSpan $ s ^. sectionHeader
     H.script ! A.type_ "text/x-mathjax-config" $ do
       "  MathJax.Hub.Config({ \
@@ -227,6 +241,8 @@ cssChapter = do
   ".subsection" ? do
     C.paddingTop (C.em 0.5)
     C.textAlign C.center
+  ".icon-left" ? do
+    C.marginRight (C.em 0.5)
 
 colorMeter :: Given Theme => C.Color
 colorMeter = case given @Theme of
