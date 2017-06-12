@@ -39,11 +39,10 @@ metaPreamble = do
     ! A.name "robots"
     ! A.content "noindex"
 
-linkThemeCss :: H.Html
-linkThemeCss = do
+linkCss :: H.AttributeValue -> H.Html
+linkCss ref = do
   H.link
-    ! A.id "theme-link"
-    ! A.href "./loading.css"
+    ! A.href ref
     ! A.rel "stylesheet"
     ! A.type_ "text/css"
 
@@ -61,7 +60,7 @@ renderTableOfContents :: Given Book => TableOfContents -> H.Html
 renderTableOfContents (TableOfContents chapterIds) = do
   H.head $ do
     metaPreamble
-    linkThemeCss
+    linkCss "./toc-light.css" ! A.id "theme-link"
     H.title "Intermediate Haskell"
     H.script ""
       ! A.type_ "text/javascript"
@@ -77,16 +76,17 @@ renderNav :: H.Html
 renderNav = H.nav $ do
   H.a ! A.href "./table-of-contents.html" $
     renderIcon "fa fa-home icon-left" <> "Table of Contents"
-  H.a ! A.href "#" ! A.onclick "dark();" ! A.class_ "theme-button-to-dark" $
-    renderIcon "fa fa-moon-o icon-left" <> "Dark Mode"
-  H.a ! A.href "#" ! A.onclick "light();" ! A.class_ "theme-button-to-light" $
-    renderIcon "fa fa-lightbulb-o icon-left" <> "Light Mode"
+  H.a ! A.href "#" ! A.onclick "dark();" ! A.class_ "theme-button theme-button-to-dark" $
+    renderIcon "fa fa-circle-o icon-left" <> "Dark Mode"
+  H.a ! A.href "#" ! A.onclick "light();" ! A.class_ "theme-button theme-button-to-light" $
+    renderIcon "fa fa-dot-circle-o icon-left" <> "Light Mode"
 
 renderChapter :: Given Book => Section -> H.Html
 renderChapter s = do
   H.head $ do
     metaPreamble
-    linkThemeCss
+    linkCss "./chapter.css"
+    linkCss "./chapter-default.css" ! A.id "theme-link"
     linkFontawesomeCss
     H.title . renderSpan $ s ^. sectionHeader
     H.script ! A.type_ "text/x-mathjax-config" $ do
@@ -135,20 +135,14 @@ colorTip = case given @Theme of
   LightMode -> C.rgb 0x26 0xc7 0x26
   DarkMode -> C.rgb 0x6f 0xa1 0x6f
 
-cssFonts :: Given Theme => (C.Css, C.Css, C.Css)
-cssFonts = (googleFonts theme, baseFont theme, monoFont)
+cssFonts :: Given Theme => (C.Css, C.Css)
+cssFonts = (baseFont theme, monoFont)
   where
     theme = given @Theme
     baseFont LightMode = C.fontFamily ["PT Serif"] [C.serif]
     baseFont DarkMode  = C.fontFamily ["Ubuntu"] [C.sansSerif]
     monoFont =
       C.fontFamily ["Ubuntu Mono"] [C.monospace]
-    googleFonts LightMode = C.importUrl
-      "https://fonts.googleapis.com/css?\
-      \family=PT+Serif:400,400i,700|Ubuntu+Mono:400,400i,700;"
-    googleFonts DarkMode  = C.importUrl
-      "https://fonts.googleapis.com/css?\
-      \family=Ubuntu:400,400i,700|Ubuntu+Mono:400,400i,700;"
 
 cssFontColor :: Given Theme => C.Css
 cssFontColor = case given @Theme of
@@ -169,11 +163,16 @@ cssThemeButton = case given @Theme of
   LightMode -> ".theme-button-to-light" ? C.display C.none
   DarkMode  -> ".theme-button-to-dark" ? C.display C.none
 
-cssChapter :: Given Theme => C.Css
-cssChapter = do
-  let (cssGoogleFonts, cssBaseFont, cssMonoFont) = cssFonts
+cssGoogleFonts :: C.Css
+cssGoogleFonts = C.importUrl
+  "https://fonts.googleapis.com/css?\
+  \family=PT+Serif:400,400i,700|\
+  \family=Ubuntu:400,400i,700|\
+  \Ubuntu+Mono:400,400i,700;"
+
+cssChapterCommon :: C.Css
+cssChapterCommon = do
   cssGoogleFonts
-  cssThemeButton
   C.html ? do
     C.boxSizing C.borderBox
     C.sym C.margin C.nil
@@ -181,25 +180,17 @@ cssChapter = do
   C.nav ? do
     C.display C.flex
     C.justifyContent C.spaceBetween
-    C.border C.solid (C.px 1) colorOutline
     C.sym C.padding (C.em 1)
     C.a # ":link" <> C.a # ":visited" ? C.color C.inherit
   C.body ? do
     C.sym C.margin C.auto
     C.paddingTop (C.em 2)
     C.lineHeight (C.unitless 1.6)
-    cssBaseFont
-    C.background colorBackground
-    C.color colorText
     C.width (C.em 50)
-  cssLinks
   C.code ? do
     C.whiteSpace C.nowrap
     C.lineHeight (C.unitless 1.3)
-    C.outline C.solid (C.px 1) colorOutline
     C.sym2 C.padding (C.em 0.1) (C.em 0.3)
-  (".package-name" <> ".module-name" <> C.code) ? do
-    cssMonoFont
   C.legend ? do
     C.marginBottom (C.em (-0.5))
     C.textAlign C.center
@@ -207,7 +198,6 @@ cssChapter = do
   ".snippet" ? do
     C.display C.block
     C.outlineStyle C.none
-    C.borderLeft C.solid (C.px 2) colorOutline
     C.whiteSpace C.T.pre
     C.padding (C.em 0.5) (C.em 0.5) (C.em 0.5) (C.em 1)
     C.marginTop (C.em 1)
@@ -219,6 +209,34 @@ cssChapter = do
     C.paddingRight (C.em 1)
     C.marginTop (C.em 1)
     C.marginBottom (C.em 1)
+  ".subsection" ? do
+    C.paddingTop (C.em 0.5)
+    C.textAlign C.center
+  ".icon-left" ? do
+    C.marginRight (C.em 0.5)
+
+cssChapterDefault :: C.Css
+cssChapterDefault = do
+  C.importUrl "./chapter-light.css"
+  ".theme-button" ? C.display C.none
+
+cssChapter :: Given Theme => C.Css
+cssChapter = do
+  let (cssBaseFont, cssMonoFont) = cssFonts
+  cssThemeButton
+  C.nav ? do
+    C.border C.solid (C.px 1) colorOutline
+  C.body ? do
+    cssBaseFont
+    C.background colorBackground
+    C.color colorText
+  cssLinks
+  C.code ? do
+    C.outline C.solid (C.px 1) colorOutline
+  (".package-name" <> ".module-name" <> C.code) ? do
+    cssMonoFont
+  ".snippet" ? do
+    C.borderLeft C.solid (C.px 2) colorOutline
   ".note" ? do
     C.border C.solid (C.px 1) colorNote
   ".note" |> C.legend ?
@@ -238,11 +256,6 @@ cssChapter = do
     C.borderBottom C.solid (C.px 1) colorOutline
   (C.td <> C.th) ? do
     (C.paddingLeft <> C.paddingRight) (C.em 0.5)
-  ".subsection" ? do
-    C.paddingTop (C.em 0.5)
-    C.textAlign C.center
-  ".icon-left" ? do
-    C.marginRight (C.em 0.5)
 
 colorMeter :: Given Theme => C.Color
 colorMeter = case given @Theme of
@@ -266,8 +279,7 @@ cssMeter = do
 
 cssTableOfContents :: Given Theme => C.Css
 cssTableOfContents = do
-  let (cssGoogleFonts, cssBaseFont, cssMonoFont) = cssFonts
-  cssGoogleFonts
+  let (cssBaseFont, cssMonoFont) = cssFonts
   C.body ? do
     C.sym C.margin C.auto
     C.position C.relative
@@ -437,10 +449,11 @@ renderSpan = \case
     let t = renderURI uri
     in H.a (maybe (H.toHtml t) renderSpan ms) ! A.href (H.toValue t)
 
-renderCss :: Theme -> (Given Theme => C.Css) -> Text
-renderCss theme css =
-  Text.toStrict . C.renderWith C.compact [] $
-    give theme css
+renderCss :: C.Css -> Text
+renderCss = Text.toStrict . C.renderWith C.compact []
+
+renderThemeCss :: Theme -> (Given Theme => C.Css) -> Text
+renderThemeCss theme css = renderCss $ give theme css
 
 data Rendered =
   Rendered {
@@ -472,8 +485,9 @@ renderBook book = rTableOfContents : rChapters ++ rStaticResources
     rStaticResources =
       [ Rendered "js" "toc" $(embedStringFile "src/toc.js"),
         Rendered "js" "chapter" $(embedStringFile "src/chapter.js"),
-        Rendered "css" "loading" "body { display: none }",
-        Rendered "css" "toc-light" (renderCss LightMode cssTableOfContents),
-        Rendered "css" "toc-dark" (renderCss DarkMode cssTableOfContents),
-        Rendered "css" "chapter-light" (renderCss LightMode cssChapter),
-        Rendered "css" "chapter-dark" (renderCss DarkMode cssChapter) ]
+        Rendered "css" "toc-light" (renderThemeCss LightMode cssTableOfContents),
+        Rendered "css" "toc-dark" (renderThemeCss DarkMode cssTableOfContents),
+        Rendered "css" "chapter" (renderCss cssChapterCommon),
+        Rendered "css" "chapter-default" (renderCss cssChapterDefault),
+        Rendered "css" "chapter-light" (renderThemeCss LightMode cssChapter),
+        Rendered "css" "chapter-dark" (renderThemeCss DarkMode cssChapter) ]
