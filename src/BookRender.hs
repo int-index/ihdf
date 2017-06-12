@@ -76,9 +76,9 @@ renderNav :: H.Html
 renderNav = H.nav $ do
   H.a ! A.href "./table-of-contents.html" $
     renderIcon "fa fa-home icon-left" <> "Table of Contents"
-  H.a ! A.href "#" ! A.onclick "dark();" ! A.class_ "theme-button theme-button-to-dark" $
+  H.a ! A.href "javascript:void dark();" ! A.onclick "dark();" ! A.class_ "theme-button theme-button-to-dark" $
     renderIcon "fa fa-circle-o icon-left" <> "Dark Mode"
-  H.a ! A.href "#" ! A.onclick "light();" ! A.class_ "theme-button theme-button-to-light" $
+  H.a ! A.href "javascript:void light();" ! A.onclick "light();" ! A.class_ "theme-button theme-button-to-light" $
     renderIcon "fa fa-dot-circle-o icon-left" <> "Light Mode"
 
 renderChapter :: Given Book => Section -> H.Html
@@ -160,8 +160,8 @@ cssLinks = do
 
 cssThemeButton :: Given Theme => C.Css
 cssThemeButton = case given @Theme of
-  LightMode -> ".theme-button-to-light" ? C.display C.none
-  DarkMode  -> ".theme-button-to-dark" ? C.display C.none
+  LightMode -> ".theme-button-to-dark" ? C.display C.inline
+  DarkMode  -> ".theme-button-to-light" ? C.display C.inline
 
 cssGoogleFonts :: C.Css
 cssGoogleFonts = C.importUrl
@@ -182,6 +182,7 @@ cssChapterCommon = do
     C.justifyContent C.spaceBetween
     C.sym C.padding (C.em 1)
     C.a # ":link" <> C.a # ":visited" ? C.color C.inherit
+    C.border C.solid (C.px 1) C.transparent
   C.body ? do
     C.sym C.margin C.auto
     C.paddingTop (C.em 2)
@@ -191,10 +192,18 @@ cssChapterCommon = do
     C.whiteSpace C.nowrap
     C.lineHeight (C.unitless 1.3)
     C.sym2 C.padding (C.em 0.1) (C.em 0.3)
+    C.outline C.solid (C.px 1) C.transparent
   C.legend ? do
     C.marginBottom (C.em (-0.5))
     C.textAlign C.center
     C.fontVariant C.smallCaps
+  C.table ? do
+    (C.marginTop <> C.marginLeft) (C.em 1)
+    C.borderCollapse C.collapse
+  C.thead ? do
+    C.borderBottom C.solid (C.px 1) C.transparent
+  (C.td <> C.th) ? do
+    (C.paddingLeft <> C.paddingRight) (C.em 0.5)
   ".snippet" ? do
     C.display C.block
     C.outlineStyle C.none
@@ -202,7 +211,9 @@ cssChapterCommon = do
     C.padding (C.em 0.5) (C.em 0.5) (C.em 0.5) (C.em 1)
     C.marginTop (C.em 1)
     C.marginBottom (C.em 1)
+    C.borderLeft C.solid (C.px 2) C.transparent
   (".note" <> ".todo" <> ".tip") ? do
+    C.border C.solid (C.px 1) C.transparent
     C.paddingTop (C.em 0)
     C.paddingBottom (C.em 0)
     C.paddingLeft (C.em 2)
@@ -214,10 +225,6 @@ cssChapterCommon = do
     C.textAlign C.center
   ".icon-left" ? do
     C.marginRight (C.em 0.5)
-
-cssChapterDefault :: C.Css
-cssChapterDefault = do
-  C.importUrl "./chapter-light.css"
   ".theme-button" ? C.display C.none
 
 cssChapter :: Given Theme => C.Css
@@ -225,37 +232,37 @@ cssChapter = do
   let (cssBaseFont, cssMonoFont) = cssFonts
   cssThemeButton
   C.nav ? do
-    C.border C.solid (C.px 1) colorOutline
+    C.borderColor colorOutline
   C.body ? do
     cssBaseFont
     C.background colorBackground
     C.color colorText
   cssLinks
   C.code ? do
-    C.outline C.solid (C.px 1) colorOutline
+    C.outlineColor colorOutline
   (".package-name" <> ".module-name" <> C.code) ? do
     cssMonoFont
   ".snippet" ? do
-    C.borderLeft C.solid (C.px 2) colorOutline
+    C.borderLeftColor colorOutline
   ".note" ? do
-    C.border C.solid (C.px 1) colorNote
+    C.borderColor colorNote
   ".note" |> C.legend ?
     C.color colorNote
   ".todo" ? do
-    C.border C.solid (C.px 1) colorTodo
+    C.borderColor colorTodo
   ".todo" |> C.legend ?
     C.color colorTodo
   ".tip" ? do
-    C.border C.solid (C.px 1) colorTip
+    C.borderColor colorTip
   ".tip" |> C.legend ?
     C.color colorTip
-  C.table ? do
-    (C.marginTop <> C.marginLeft) (C.em 1)
-    C.borderCollapse C.collapse
   C.thead ? do
-    C.borderBottom C.solid (C.px 1) colorOutline
-  (C.td <> C.th) ? do
-    (C.paddingLeft <> C.paddingRight) (C.em 0.5)
+    C.borderBottomColor colorOutline
+
+cssChapterDefault :: C.Css
+cssChapterDefault = do
+  C.importUrl "./chapter-light.css"
+  ".theme-button" ? C.display C.none
 
 colorMeter :: Given Theme => C.Color
 colorMeter = case given @Theme of
