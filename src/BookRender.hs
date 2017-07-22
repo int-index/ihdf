@@ -361,7 +361,9 @@ renderUnit = \case
 renderPicture :: Picture -> H.Html
 renderPicture pic =
   addAltText $
-    H.img ! A.src (fromString . Text.unpack . renderURI $ pic ^. pictureLink)
+    H.img
+      ! A.src (fromString . Text.unpack . renderURI $ pic ^. pictureLink)
+      ! A.width "100%"
   where
     addAltText = case pic ^. pictureComment of
       Nothing -> id
