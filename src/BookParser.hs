@@ -31,6 +31,7 @@ type ParseErr = ParseError Char Dec
 data Warning =
   WUnrecognizedProp Text |
   WUnrecognizedUnit Text |
+  WInvalidExtension |
   WInvalidPackage |
   WInvalidModule |
   WInvalidChapter |
@@ -56,6 +57,7 @@ renderWarning :: Warning -> Text
 renderWarning = \case
   WUnrecognizedProp t -> "Could not recognize prop " <> Text.pack (show t)
   WUnrecognizedUnit t -> "Unknown unit type " <> Text.pack (show t)
+  WInvalidExtension -> "Invalid extension name"
   WInvalidPackage -> "Invalid package name"
   WInvalidModule -> "Invalid module name"
   WInvalidChapter -> "Invalid chapter name"
@@ -108,6 +110,7 @@ pSpanProp = between (string "[") (string "]") $ do
   case propStr of
     "def" -> return $ return . Emphasis
     "emph" -> return $ return . Emphasis
+    "ext" -> return preprocessExtension
     "package" -> return preprocessPackage
     "module" -> return preprocessModule
     "chapter" -> return preprocessChapter
@@ -125,6 +128,14 @@ preprocessLink :: Monad n => URI -> Span -> n Span
 preprocessLink uri = return . Link uri . \case
   Span "" -> Nothing
   s       -> Just s
+
+preprocessExtension :: MonadState [Warning] n => Span -> n Span
+preprocessExtension = \case
+  Span extName ->
+    return $ Mono ("-X" <> extName)
+  s -> do
+    warn WInvalidExtension
+    return s
 
 preprocessPackage :: MonadState [Warning] n => Span -> n Span
 preprocessPackage = \case
