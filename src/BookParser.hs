@@ -8,6 +8,7 @@ import Data.Maybe
 import Data.Reflection
 import Data.List.NonEmpty (NonEmpty(..), nonEmpty)
 import Control.Applicative
+import Data.Functor
 import Data.Traversable
 import Control.Monad (void)
 import Control.Monad.Reader
@@ -37,6 +38,9 @@ data Warning =
   WInvalidChapter |
   WInvalidPictureCaption |
   WInconsistentRowLength
+
+newtype IsWrappingAllowed =
+  IsWrappingAllowed {isWrappingAllowed :: Bool}
 
 warn :: MonadState [Warning] m => Warning -> m ()
 warn w = modify (w:)
@@ -69,10 +73,32 @@ matchString model actual = case splitAt (length model) actual of
   (model', rest) | model == model' -> Just rest
   _ -> Nothing
 
-pTextSpan :: MonadParsec e String m => m Span
-pTextSpan = do
-  Span . preprocessContent . Text.pack <$> some (noneOf @[] "\n[](){}`$")
+-- | Internal space for text: collapses several spaces into one, treats
+-- newlines as spaces.
+textInternalSpace :: MonadParsec e String m => m Char
+textInternalSpace = (try lineBreak <|> inlineSpace) $> ' '
   where
+    lineBreak = skipMany (char ' ') >> newline >> skipMany (char ' ') >>
+                notFollowedBy newline
+    inlineSpace = skipSome (char ' ')
+
+-- | Internal space for inline code spans: doesn't do space collapsing
+-- ordinarily, but collapses newlines surrounded by spaces.
+codeInternalSpace :: MonadParsec e String m => m Char
+codeInternalSpace = (try lineBreak <|> inlineSpace) $> ' '
+  where
+    lineBreak = skipMany (char ' ') >> newline >> skipMany (char ' ') >>
+                notFollowedBy newline
+    inlineSpace = void (char ' ')
+
+pTextSpan
+  :: MonadParsec e String m
+  => IsWrappingAllowed -> m Span
+pTextSpan IsWrappingAllowed{..} = do
+  Span . preprocessContent . Text.pack <$> some spanChar
+  where
+    spanChar = noneOf @[] " \n[](){}`$*" <|>
+               if isWrappingAllowed then textInternalSpace else char ' '
     preprocessContent =
       Text.replace "<<" "“" .
       Text.replace ">>" "”" .
@@ -87,7 +113,8 @@ pMonoSpan = do
     pMonoChar =
       '\\' <$ string "\\\\" <|>
       '`'  <$ string "\\`"  <|>
-      noneOf @[] "`\\"
+      codeInternalSpace     <|>
+      noneOf @[] "`\\\n "
 
 pMathSpan :: MonadParsec e String m => m Span
 pMathSpan = do
@@ -97,12 +124,14 @@ pMathSpan = do
     pMathChar =
       '\\' <$ string "\\\\" <|>
       '$'  <$ string "\\$"  <|>
-      noneOf @[] "$"
+      codeInternalSpace     <|>
+      noneOf @[] "$\n "
 
 pHeader :: (MonadState [Warning] m, MonadReader Depth m, MonadParsec e String m) => (Given ResourcesURI, Given TableOfContents) => m Span
 pHeader = do
   Depth n <- ask
-  string (replicate n '#' ++ " ") *> pSpan <* many newline
+  between (string (replicate n '#' ++ " ")) (many newline) $
+    pSpan (IsWrappingAllowed False)
 
 pSpanProp :: (MonadState [Warning] m, MonadParsec e String m, MonadState [Warning] n, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m (Span -> n Span)
 pSpanProp = between (string "[") (string "]") $ do
@@ -206,24 +235,24 @@ pAnnSpan = do
 pParenSpan :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Span
 pParenSpan =
   fromMaybe (Span "") <$>
-    between (string "(") (string ")") (optional pSpan)
+    between (string "(") (string ")") (optional (pSpan (IsWrappingAllowed True)))
 
-pSpan1 :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Span
-pSpan1 = asum
+pSpan1 :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => IsWrappingAllowed -> m Span
+pSpan1 wrapping = asum
   [ try pAnnSpan,
     pMonoSpan,
     pMathSpan,
-    pTextSpan ]
+    pTextSpan wrapping ]
 
-pSpan :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Span
-pSpan = lexeme $ do
-  spans <- some pSpan1
+pSpan :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => IsWrappingAllowed -> m Span
+pSpan wrapping = lexeme $ do
+  spans <- some (pSpan1 wrapping)
   return $ case spans of
     [span] -> span
     spans' -> Spans spans'
 
-pParagraph :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Paragraph
-pParagraph = Paragraph <$> pSpan
+pParagraph :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => IsWrappingAllowed -> m Paragraph
+pParagraph wrapping = Paragraph <$> pSpan wrapping
 
 pPicture :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Picture
 pPicture = do
@@ -251,7 +280,7 @@ pAnnUnit = do
         _ -> do
           warn $ WUnrecognizedUnit (Text.pack unitTy)
           return id
-      unitWrap <$> pUnit
+      unitWrap <$> pUnit (IsWrappingAllowed True)
 
 data TableSep =
   TableSepHeader |
@@ -269,7 +298,7 @@ pTableItem =
   TableSep TableSepHeader <$ lexeme (string "====") <|>
   TableSep TableSepRow <$ lexeme (string "----") <|>
   TableSep TableSepSubsection <$ lexeme (string "++++") <|>
-  TableUnit <$> (lexeme (string "|") *> pUnit)
+  TableUnit <$> (lexeme (string "|") *> pUnit (IsWrappingAllowed False))
 
 pTable :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Table
 pTable = do
@@ -322,25 +351,26 @@ pSnippet = lexeme $ do
   return $ Snippet (Text.pack cs)
 
 pList :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m [Unit]
-pList = some $ lexeme (string "*") *> pUnit
+pList = some $ lexeme (string "*") *> pUnit (IsWrappingAllowed True)
 
 pUnits :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m [Unit]
-pUnits = lexeme $ between (lexeme (string "{")) (string "}") (many pUnit)
+pUnits = lexeme $ between (lexeme (string "{")) (string "}") $
+  many (pUnit (IsWrappingAllowed True))
 
-pUnit :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Unit
-pUnit = do
+pUnit :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => IsWrappingAllowed -> m Unit
+pUnit wrapping = do
   notFollowedBy (char '#')
   asum
     [ Units <$> pUnits,
       pAnnUnit,
       UnitSnippet <$> pSnippet,
       UnitList <$> pList,
-      UnitParagraph <$> pParagraph ]
+      UnitParagraph <$> pParagraph wrapping ]
 
 pSection :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Section
 pSection = do
   header <- pHeader
-  units <- many pUnit
+  units <- many (pUnit (IsWrappingAllowed True))
   subsections <- local incDepth (many pSection)
   return $ Section header units subsections
 
