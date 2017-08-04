@@ -13,6 +13,7 @@ import Data.Traversable
 import Control.Monad (void)
 import Control.Monad.Reader
 import Control.Monad.State
+import Lens.Micro.Platform (over, _last)
 import Text.Megaparsec
 import Text.Megaparsec.Prim
 import Data.Text (Text)
@@ -90,6 +91,12 @@ codeInternalSpace = (try lineBreak <|> inlineSpace) $> ' '
     lineBreak = skipMany (char ' ') >> newline >> skipMany (char ' ') >>
                 notFollowedBy newline
     inlineSpace = void (char ' ')
+
+trimTrailingSpaces :: Span -> Span
+trimTrailingSpaces = \case
+  Span s   -> Span (Text.stripEnd s)
+  Spans xs -> Spans (over _last trimTrailingSpaces xs)
+  sp       -> sp
 
 pTextSpan
   :: MonadParsec e String m
@@ -252,7 +259,7 @@ pSpan wrapping = lexeme $ do
     spans' -> Spans spans'
 
 pParagraph :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => IsWrappingAllowed -> m Paragraph
-pParagraph wrapping = Paragraph <$> pSpan wrapping
+pParagraph wrapping = Paragraph . trimTrailingSpaces <$> pSpan wrapping
 
 pPicture :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Picture
 pPicture = do
