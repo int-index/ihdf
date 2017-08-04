@@ -74,7 +74,7 @@ renderTableOfContents (TableOfContents chapterIds) = do
       renderChapterProgress chapterId
 
 renderNav :: H.Html
-renderNav = H.nav $ do
+renderNav = H.nav ! A.class_ "navigation" $ do
   H.a ! A.href "./table-of-contents.html" $
     renderIcon "fa fa-home icon-left" <> "Table of Contents"
   H.a ! A.href "javascript:void dark();" ! A.onclick "dark();" ! A.class_ "theme-button theme-button-to-dark" $
@@ -100,11 +100,22 @@ renderChapter s = do
       ! A.src "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js"
     H.script ""
       ! A.type_ "text/javascript"
+      ! A.src "https://cdn.emailjs.com/dist/email.min.js"
+    H.script ! A.type_ "text/javascript" $
+      "(function(){ emailjs.init(\"user_88DpPsGpsVhv7WrmSl011\"); })();"
+    H.script ""
+      ! A.type_ "text/javascript"
       ! A.src "./chapter.js"
+    H.script ""
+      ! A.type_ "text/javascript"
+      ! A.src "./orphus.js"
   H.body $ do
     renderNav
     H.main $ renderSection (Depth 1) s
     renderNav
+    H.script ""
+      ! A.type_ "text/javascript"
+      ! A.src "https://cdn.rawgit.com/alertifyjs/alertify.js/v1.0.10/dist/js/alertify.js"
 
 colorBackground :: Given Theme => C.Color
 colorBackground = case given @Theme of
@@ -178,7 +189,7 @@ cssChapterCommon = do
     C.boxSizing C.borderBox
     C.sym C.margin C.nil
   C.star ? C.boxSizing C.inherit
-  C.nav ? do
+  ".navigation" ? do
     C.display C.flex
     C.justifyContent C.spaceBetween
     C.sym C.padding (C.em 1)
@@ -233,7 +244,7 @@ cssChapter :: Given Theme => C.Css
 cssChapter = do
   let (cssBaseFont, cssMonoFont) = cssFonts
   cssThemeButton
-  C.nav ? do
+  ".navigation" ? do
     C.borderColor colorOutline
   C.body ? do
     cssBaseFont
@@ -505,6 +516,7 @@ renderBook book = rTableOfContents : rChapters ++ rStaticResources
     rStaticResources =
       [ Rendered "js" "toc" $(embedStringFile "src/toc.js"),
         Rendered "js" "chapter" $(embedStringFile "src/chapter.js"),
+        Rendered "js" "orphus" $(embedStringFile "src/orphus.js"),
         Rendered "css" "toc-common" (renderCss cssTableOfContentsCommon),
         Rendered "css" "toc-light" (renderThemeCss LightMode cssTableOfContents),
         Rendered "css" "toc-dark" (renderThemeCss DarkMode cssTableOfContents),
