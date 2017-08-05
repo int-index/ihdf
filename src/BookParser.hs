@@ -7,6 +7,7 @@ import Data.Foldable
 import Data.Maybe
 import Data.Reflection
 import Data.List.NonEmpty (NonEmpty(..), nonEmpty)
+import Data.Void
 import Control.Applicative
 import Data.Functor
 import Data.Traversable
@@ -15,11 +16,11 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Lens.Micro.Platform (over, _last)
 import Text.Megaparsec
-import Text.Megaparsec.Prim
+import Text.Megaparsec.Char
 import Data.Text (Text)
 import Network.URI
 
-import qualified Text.Megaparsec.Lexer as L
+import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Data.List as List
 import qualified Data.Text as Text
 import qualified Turtle
@@ -28,7 +29,7 @@ import BookStructure
 
 newtype ResourcesURI = ResourcesURI URI
 
-type ParseErr = ParseError Char Dec
+type ParseErr = ParseError Char Void
 
 data Warning =
   WUnrecognizedProp Text |
@@ -48,15 +49,15 @@ warn w = modify (w:)
 
 spaceConsumer :: MonadParsec e String m => m ()
 spaceConsumer = L.space
-  (void spaceChar)
+  space1
   (L.skipLineComment "//")
   (L.skipBlockCommentNested "/*" "*/")
 
 lexeme :: MonadParsec e String m => m a -> m a
 lexeme = L.lexeme spaceConsumer
 
-renderParseError :: ParseErr -> Text
-renderParseError = Text.pack . parseErrorPretty
+renderParseError :: Text -> ParseErr -> Text
+renderParseError s err = Text.pack (parseErrorPretty' s err)
 
 renderWarning :: Warning -> Text
 renderWarning = \case
@@ -79,18 +80,26 @@ matchString model actual = case splitAt (length model) actual of
 textInternalSpace :: MonadParsec e String m => m Char
 textInternalSpace = (try lineBreak <|> inlineSpace) $> ' '
   where
-    lineBreak = skipMany (char ' ') >> newline >> skipMany (char ' ') >>
-                notFollowedBy newline
-    inlineSpace = skipSome (char ' ')
+    lineBreak = do
+      skipSpace <* newline
+      skipSpace <* notFollowedBy newline
+    inlineSpace = skipSpace1
 
 -- | Internal space for inline code spans: doesn't do space collapsing
 -- ordinarily, but collapses newlines surrounded by spaces.
 codeInternalSpace :: MonadParsec e String m => m Char
 codeInternalSpace = (try lineBreak <|> inlineSpace) $> ' '
   where
-    lineBreak = skipMany (char ' ') >> newline >> skipMany (char ' ') >>
-                notFollowedBy newline
+    lineBreak = do
+      skipSpace <* newline
+      skipSpace <* notFollowedBy newline
     inlineSpace = void (char ' ')
+
+skipSpace :: MonadParsec e String m => m ()
+skipSpace = void $ takeWhileP (Just "white space") (== ' ')
+
+skipSpace1 :: MonadParsec e String m => m ()
+skipSpace1 = void $ takeWhile1P (Just "white space") (== ' ')
 
 trimTrailingSpaces :: Span -> Span
 trimTrailingSpaces = \case
