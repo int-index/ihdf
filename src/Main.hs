@@ -52,7 +52,7 @@ readTableOfContents srcPath = do
     tableOfContentsFileName = "table-of-contents"
     tableOfContentsPath = srcPath </> tableOfContentsFileName
   tableOfContentsFileContent <- readTextFile tableOfContentsPath
-  either handleParseError return $
+  either (handleParseError tableOfContentsFileContent) return $
     parseTableOfContents tableOfContentsFileName tableOfContentsFileContent
 
 readChapters :: URI -> FilePath -> TableOfContents -> IO (Map ChapterId Section)
@@ -64,14 +64,14 @@ readChapters resURI srcPath tableOfContents =
         chapterFileName = fromText (unChapterId chapterId <> ".ihdf")
         chapterPath = srcPath </> chapterFileName
       chapterFileContent <- liftIO $ readTextFile chapterPath
-      (section, warnings) <- either handleParseError return $
+      (section, warnings) <- either (handleParseError chapterFileContent) return $
         parseChapter tableOfContents resURI chapterPath chapterFileContent
       traverse_ (printf (makeFormat renderWarning % "\n")) warnings
       return section
 
-handleParseError :: MonadIO io => ParseErr -> io a
-handleParseError parseError = do
-  printf (makeFormat renderParseError) parseError
+handleParseError :: MonadIO io => Text -> ParseErr -> io a
+handleParseError content parseError = do
+  printf (makeFormat (renderParseError content)) parseError
   exit $ ExitFailure 3
 
 writeBook :: FilePath -> Book -> IO ()
