@@ -206,6 +206,8 @@ cssChapterCommon = do
     C.lineHeight (C.unitless 1.3)
     C.sym2 C.padding (C.em 0.1) (C.em 0.3)
     C.outline C.solid (C.px 1) C.transparent
+  C.img ? do
+    C.maxWidth (C.pct 100)
   C.legend ? do
     C.marginBottom (C.em (-0.5))
     C.textAlign C.center
@@ -374,7 +376,6 @@ renderPicture pic =
   addAltText $
     H.img
       ! A.src (fromString . Text.unpack . renderURI $ pic ^. pictureLink)
-      ! A.width "100%"
   where
     addAltText = case pic ^. pictureComment of
       Nothing -> id
