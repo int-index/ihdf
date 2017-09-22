@@ -54,6 +54,8 @@ data Unit =
   UnitTodo Unit |
   UnitNote Unit |
   UnitTip Unit |
+  UnitExercise Unit |
+  UnitSolution Unit |
   UnitSnippet Snippet |
   UnitList [Unit] |
   UnitTable Table |
