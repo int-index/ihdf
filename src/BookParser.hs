@@ -293,6 +293,8 @@ pAnnUnit = do
         "TODO" -> return UnitTodo
         "NOTE" -> return UnitNote
         "TIP" -> return UnitTip
+        "EXERCISE" -> return UnitExercise
+        "SOLUTION" -> return UnitSolution
         _ -> do
           warn $ WUnrecognizedUnit (Text.pack unitTy)
           return id

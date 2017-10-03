@@ -147,6 +147,16 @@ colorTip = case given @Theme of
   LightMode -> C.rgb 0x26 0xc7 0x26
   DarkMode -> C.rgb 0x6f 0xa1 0x6f
 
+colorExercise :: Given Theme => C.Color
+colorExercise = case given @Theme of
+  LightMode -> C.rgb 0xe3 0x9d 0x08
+  DarkMode -> C.rgb 0xa7 0x74 0x07
+
+colorSolution :: Given Theme => C.Color
+colorSolution = case given @Theme of
+  LightMode -> C.rgb 0x21 0xa4 0x6b
+  DarkMode -> C.rgb 0x19 0x74 0x4d
+
 cssFonts :: Given Theme => (C.Css, C.Css)
 cssFonts = (baseFont theme, monoFont)
   where
@@ -227,7 +237,7 @@ cssChapterCommon = do
     C.marginTop (C.em 1)
     C.marginBottom (C.em 1)
     C.borderLeft C.solid (C.px 2) C.transparent
-  (".note" <> ".todo" <> ".tip") ? do
+  (".note" <> ".todo" <> ".tip" <> ".exercise" <> ".solution") ? do
     C.border C.solid (C.px 1) C.transparent
     C.paddingTop (C.em 0)
     C.paddingBottom (C.em 0)
@@ -259,20 +269,17 @@ cssChapter = do
     cssMonoFont
   ".snippet" ? do
     C.borderLeftColor colorOutline
-  ".note" ? do
-    C.borderColor colorNote
-  ".note" |> C.legend ?
-    C.color colorNote
-  ".todo" ? do
-    C.borderColor colorTodo
-  ".todo" |> C.legend ?
-    C.color colorTodo
-  ".tip" ? do
-    C.borderColor colorTip
-  ".tip" |> C.legend ?
-    C.color colorTip
   C.thead ? do
     C.borderBottomColor colorOutline
+  forM_ [ (".note", colorNote)
+        , (".todo", colorTodo)
+        , (".tip",  colorTip)
+        , (".exercise", colorExercise)
+        , (".solution", colorSolution) ] $ \(selector, color) -> do
+    selector ? do
+      C.borderColor color
+    selector |> C.legend ?
+      C.color color
 
 cssChapterDefault :: C.Css
 cssChapterDefault = do
@@ -364,6 +371,12 @@ renderUnit = \case
     H.span $ renderUnit u
   UnitTip u -> H.fieldset ! A.class_ "tip" $ do
     H.legend "Tip"
+    H.span $ renderUnit u
+  UnitExercise u -> H.fieldset ! A.class_ "exercise" $ do
+    H.legend "Exercise"
+    H.span $ renderUnit u
+  UnitSolution u -> H.fieldset ! A.class_ "solution" $ do
+    H.legend "Solution"
     H.span $ renderUnit u
   UnitSnippet (Snippet t) -> H.code ! A.class_ "snippet" $ H.toHtml t
   UnitList us -> H.ul (foldMap (H.li . renderUnit) us)
