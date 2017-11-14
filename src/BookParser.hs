@@ -119,7 +119,8 @@ pTextSpan IsWrappingAllowed{..} = do
       Text.replace "<<" "“" .
       Text.replace ">>" "”" .
       Text.replace "---" "\x2014" .
-      Text.replace "--" "\x2013"
+      Text.replace "--" "\x2013" .
+      Text.replace "->" "\x2192"
 
 pMonoSpan :: MonadParsec e String m => m Span
 pMonoSpan = do
