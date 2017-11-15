@@ -1,27 +1,27 @@
 module BookRender where
 
-import Numeric
+import Control.Monad
+import Data.FileEmbed
+import Data.Foldable
+import Data.Generics.Uniplate.Data
+import qualified Data.List as List
+import qualified Data.Map as Map
+import Data.Monoid
+import Data.Reflection
+import Data.String
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text (toStrict)
 import Lens.Micro.Platform
-import qualified Data.Map as Map
 import Network.URI
-import Data.Monoid
-import Data.String
-import Data.Foldable
-import qualified Data.List as List
-import Data.Reflection
-import Data.Generics.Uniplate.Data
-import Control.Monad
-import Data.FileEmbed
+import Numeric
 
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import Text.Blaze.Html5 ((!))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Clay ((?), (|>), (#))
+import Clay (( # ), (?), (|>))
 import qualified Clay as C
 import qualified Clay.Text as C.T
 
@@ -120,42 +120,42 @@ renderChapter s = do
 colorBackground :: Given Theme => C.Color
 colorBackground = case given @Theme of
   LightMode -> C.white
-  DarkMode -> C.grayish 0x31
+  DarkMode  -> C.grayish 0x31
 
 colorText :: Given Theme => C.Color
 colorText = case given @Theme of
   LightMode -> C.black
-  DarkMode -> C.grayish 0xc0
+  DarkMode  -> C.grayish 0xc0
 
 colorOutline :: Given Theme => C.Color
 colorOutline = case given @Theme of
   LightMode -> C.grayish 0xcd
-  DarkMode -> C.grayish 0x53
+  DarkMode  -> C.grayish 0x53
 
 colorNote :: Given Theme => C.Color
 colorNote = case given @Theme of
   LightMode -> C.rgb 0x3f 0x9b 0xbe
-  DarkMode -> C.rgb 0x74 0xa4 0xb7
+  DarkMode  -> C.rgb 0x74 0xa4 0xb7
 
 colorTodo :: Given Theme => C.Color
 colorTodo = case given @Theme of
   LightMode -> C.red
-  DarkMode -> C.rgb 0xb9 0x74 0x74
+  DarkMode  -> C.rgb 0xb9 0x74 0x74
 
 colorTip :: Given Theme => C.Color
 colorTip = case given @Theme of
   LightMode -> C.rgb 0x26 0xc7 0x26
-  DarkMode -> C.rgb 0x6f 0xa1 0x6f
+  DarkMode  -> C.rgb 0x6f 0xa1 0x6f
 
 colorExercise :: Given Theme => C.Color
 colorExercise = case given @Theme of
   LightMode -> C.rgb 0xe3 0x9d 0x08
-  DarkMode -> C.rgb 0xa7 0x74 0x07
+  DarkMode  -> C.rgb 0xa7 0x74 0x07
 
 colorSolution :: Given Theme => C.Color
 colorSolution = case given @Theme of
   LightMode -> C.rgb 0x21 0xa4 0x6b
-  DarkMode -> C.rgb 0x19 0x74 0x4d
+  DarkMode  -> C.rgb 0x19 0x74 0x4d
 
 cssFonts :: Given Theme => (C.Css, C.Css)
 cssFonts = (baseFont theme, monoFont)
@@ -169,7 +169,7 @@ cssFonts = (baseFont theme, monoFont)
 cssFontColor :: Given Theme => C.Css
 cssFontColor = case given @Theme of
   LightMode -> C.color C.black
-  DarkMode -> C.color (C.grayish 0xc0)
+  DarkMode  -> C.color (C.grayish 0xc0)
 
 cssLinks :: Given Theme => C.Css
 cssLinks = do
@@ -289,7 +289,7 @@ cssChapterDefault = do
 colorMeter :: Given Theme => C.Color
 colorMeter = case given @Theme of
   LightMode -> C.rgb 0x78 0xca 0x8d
-  DarkMode -> C.rgb 0x78 0xca 0x8d
+  DarkMode  -> C.rgb 0x78 0xca 0x8d
 
 cssMeter :: Given Theme => C.Css
 cssMeter = do
@@ -392,7 +392,7 @@ renderPicture pic =
   where
     addAltText = case pic ^. pictureComment of
       Nothing -> id
-      Just t -> (! A.alt (fromString $ Text.unpack t))
+      Just t  -> (! A.alt (fromString $ Text.unpack t))
 
 
 renderTable :: Given Book => Table -> H.Html
@@ -502,8 +502,8 @@ renderThemeCss theme css = renderCss $ give theme css
 
 data Rendered =
   Rendered {
-    _renderedExt :: Text,
-    _renderedName :: Text,
+    _renderedExt     :: Text,
+    _renderedName    :: Text,
     _renderedContent :: Text
   } deriving (Eq, Show)
 

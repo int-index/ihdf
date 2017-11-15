@@ -3,24 +3,24 @@ module Main where
 import Prelude hiding (FilePath)
 
 import Data.Foldable
+import Data.Optional
 import Lens.Micro.Platform
 import Network.URI
-import Data.Optional
 import Turtle
 
+import qualified Control.Foldl as Fold
 import Data.Map (Map)
 import qualified Data.Text as Text
-import qualified Control.Foldl as Fold
 
-import BookRender
 import BookParser
+import BookRender
 import BookStructure
 
 data Opts =
   Opts {
-    _optsSource :: FilePath,
+    _optsSource    :: FilePath,
     _optsResources :: URI,
-    _optsOutput :: FilePath
+    _optsOutput    :: FilePath
   } deriving ()
 
 makeLenses ''Opts
