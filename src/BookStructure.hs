@@ -14,6 +14,9 @@ incDepth (Depth n) = Depth (n+1)
 newtype ChapterId = ChapterId { unChapterId :: Text }
   deriving (Eq, Ord, Show, Data)
 
+newtype SectionId = SectionId { unSectionId :: Text }
+  deriving (Eq, Ord, Show, Data)
+
 data Span =
   Span Text |
   Mono Text |
@@ -21,6 +24,7 @@ data Span =
   Parens Span |
   Spans [Span] |
   Emphasis Span |
+  SectionRef SectionId |
   ChapterRef ChapterId |
   PackageRef Text |
   ModuleRef Text |

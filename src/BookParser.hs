@@ -39,6 +39,7 @@ data Warning =
   WInvalidModule |
   WInvalidChapter |
   WInvalidPictureCaption |
+  WInvalidSection |
   WInconsistentRowLength
 
 newtype IsWrappingAllowed =
@@ -68,6 +69,7 @@ renderWarning = \case
   WInvalidModule -> "Invalid module name"
   WInvalidChapter -> "Invalid chapter name"
   WInvalidPictureCaption -> "Invalid picture caption"
+  WInvalidSection -> "Invalid section name"
   WInconsistentRowLength -> "Inconsistent row length"
 
 matchString :: String -> String -> Maybe String
@@ -161,6 +163,7 @@ pSpanProp = between (string "[") (string "]") $ do
     "package" -> return preprocessPackage
     "module" -> return preprocessModule
     "chapter" -> return preprocessChapter
+    "section" -> return preprocessSection
     (matchString "res=" -> Just resPath) -> do
       let ResourcesURI resURI = given
       return $ preprocessLink (resURI { uriPath = uriPath resURI ++ resPath })
@@ -239,6 +242,13 @@ preprocessChapter = \case
         return $ Span chapterId
   s -> do
     warn WInvalidChapter
+    return s
+
+preprocessSection :: MonadState [Warning] n => Span -> n Span
+preprocessSection = \case
+  Span t -> return $ SectionRef $ SectionId t
+  s -> do
+    warn WInvalidSection
     return s
 
 pAnnSpan :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Span

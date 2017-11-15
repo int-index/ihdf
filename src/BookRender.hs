@@ -348,9 +348,20 @@ renderSection d s = do
   foldMap renderUnit (s ^. sectionUnits)
   foldMap (renderSection (incDepth d)) (s ^. sectionSubsections)
 
+-- | Converts "Header Name" to "header-name".
+headerToId :: Text -> H.AttributeValue
+headerToId = fromString
+           . Text.unpack
+           . Text.intercalate "-"
+           . Text.words
+           . Text.toLower
+
 renderHeader :: Given Book => Depth -> Span -> H.Html
-renderHeader (Depth d) s = h $ renderSpan s
+renderHeader (Depth d) s = case headerId of
+    Nothing  -> header
+    Just hid -> header ! A.id hid
   where
+    h :: H.Html -> H.Html
     h = case d of
       1 -> H.h1
       2 -> H.h2
@@ -359,6 +370,14 @@ renderHeader (Depth d) s = h $ renderSpan s
       5 -> H.h5
       6 -> H.h6
       _ -> error "Invalid header depth"
+
+    header :: H.Html
+    header = h (renderSpan s)
+
+    headerId :: Maybe H.AttributeValue
+    headerId = case s of
+      Span sp -> Just $ headerToId sp
+      _       -> Nothing
 
 renderUnit :: Given Book => Unit -> H.Html
 renderUnit = \case
@@ -442,6 +461,9 @@ getChapterContent chapterId =
     Just s  -> s
     Nothing -> error "Invalid chapter id. Couldn't have passed \
                      \validation in the parser!"
+renderSectionRef  :: SectionId -> H.Html
+renderSectionRef (SectionId t) =
+  H.a (H.toHtml t) ! A.href (headerToId $ Text.cons '#' t)
 
 renderChapterRef :: Given Book => Bool -> ChapterId -> H.Html
 renderChapterRef withQuotes chapterId =
@@ -483,6 +505,7 @@ renderSpan = \case
   Parens s -> "(" <> renderSpan s <> ")"
   Spans ss -> foldMap renderSpan ss
   Emphasis s -> H.em (renderSpan s)
+  SectionRef sId -> renderSectionRef sId
   ChapterRef cId -> renderChapterRef True cId
   PackageRef packageName -> H.span
     ! A.class_ "package-name"
