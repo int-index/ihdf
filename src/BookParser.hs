@@ -2,27 +2,27 @@ module BookParser where
 
 import Prelude hiding (FilePath, span)
 
-import Data.Monoid
-import Data.Foldable
-import Data.Maybe
-import Data.Reflection
-import Data.List.NonEmpty (NonEmpty(..), nonEmpty)
-import Data.Void
 import Control.Applicative
-import Data.Functor
-import Data.Traversable
 import Control.Monad (void)
 import Control.Monad.Reader
 import Control.Monad.State
+import Data.Foldable
+import Data.Functor
+import Data.List.NonEmpty (NonEmpty (..), nonEmpty)
+import Data.Maybe
+import Data.Monoid
+import Data.Reflection
+import Data.Text (Text)
+import Data.Traversable
+import Data.Void
 import Lens.Micro.Platform (over, _last)
+import Network.URI
 import Text.Megaparsec
 import Text.Megaparsec.Char
-import Data.Text (Text)
-import Network.URI
 
-import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Data.List as List
 import qualified Data.Text as Text
+import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Turtle
 
 import BookStructure
@@ -72,8 +72,9 @@ renderWarning = \case
 
 matchString :: String -> String -> Maybe String
 matchString model actual = case splitAt (length model) actual of
-  (model', rest) | model == model' -> Just rest
-  _ -> Nothing
+  (model', rest)
+    | model == model' -> Just rest
+  _                   -> Nothing
 
 -- | Internal space for text: collapses several spaces into one, treats
 -- newlines as spaces.
@@ -246,7 +247,7 @@ pAnnSpan = do
   span <- pParenSpan
   props2 <- many pSpanProp
   case props1 ++ props2 of
-    [] -> return (Parens span)
+    []    -> return (Parens span)
     props -> foldr (<=<) return props span
 
 pParenSpan :: (MonadState [Warning] m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Span

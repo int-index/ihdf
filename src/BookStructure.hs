@@ -3,8 +3,8 @@ module BookStructure where
 import Data.Data
 import Data.Map (Map)
 import Data.Text
-import Network.URI
 import Lens.Micro.Platform
+import Network.URI
 
 newtype Depth = Depth Int
 
@@ -35,7 +35,7 @@ data Paragraph = Paragraph Span
 
 data Picture =
   Picture {
-    _pictureLink :: URI,
+    _pictureLink    :: URI,
     _pictureComment :: Maybe Text
   } deriving (Eq, Show, Data)
 
@@ -65,8 +65,8 @@ data Unit =
 
 data Section =
   Section {
-    _sectionHeader :: Span,
-    _sectionUnits :: [Unit],
+    _sectionHeader      :: Span,
+    _sectionUnits       :: [Unit],
     _sectionSubsections :: [Section]
   } deriving (Eq, Show, Data)
 
