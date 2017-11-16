@@ -25,6 +25,7 @@ import Text.Megaparsec
 import Text.Megaparsec.Char
 
 import qualified Data.List as List
+import qualified Data.Set as Set
 import qualified Data.Text as Text
 import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Turtle
@@ -43,7 +44,7 @@ data Warning =
   WInvalidModule |
   WInvalidChapter |
   WInvalidPictureCaption |
-  WInvalidSection |
+  WInvalidSection SectionId |
   WInconsistentRowLength
 
 newtype IsWrappingAllowed =
@@ -88,7 +89,7 @@ renderWarning = \case
   WInvalidModule -> "Invalid module name"
   WInvalidChapter -> "Invalid chapter name"
   WInvalidPictureCaption -> "Invalid picture caption"
-  WInvalidSection -> "Invalid section name"
+  WInvalidSection t -> "Invalid section name: " <> Text.pack (show t)
   WInconsistentRowLength -> "Inconsistent row length"
 
 matchString :: String -> String -> Maybe String
@@ -169,8 +170,11 @@ pMathSpan = do
 pHeader :: (MonadState BookState m, MonadReader Depth m, MonadParsec e String m) => (Given ResourcesURI, Given TableOfContents) => m Span
 pHeader = do
   Depth n <- ask
-  between (string (replicate n '#' ++ " ")) (many newline) $
-    pSpan (IsWrappingAllowed False)
+  header  <- between (string (replicate n '#' ++ " ")) (many newline) $ pSpan (IsWrappingAllowed False)
+  case header of
+    Span t -> sectionsDefined %= Set.insert (SectionId t)
+    _      -> return ()
+  return header
 
 pSpanProp :: (MonadState BookState m, MonadParsec e String m, MonadState BookState n, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m (Span -> n Span)
 pSpanProp = between (string "[") (string "]") $ do
@@ -265,9 +269,17 @@ preprocessChapter = \case
 
 preprocessSection :: MonadState BookState n => Span -> n Span
 preprocessSection = \case
-  Span t -> return $ SectionRef $ SectionId t
+  Span t -> do
+     knownSections <- gets bookStateSectionsDefined
+     let sId = SectionId t
+     if Set.member sId knownSections then do
+       sectionsReferenced %= Set.insert sId
+       return $ SectionRef sId
+     else do
+       warn $ WInvalidSection sId
+       return $ Span t
   s -> do
-    warn WInvalidSection
+    warn $ WInvalidSection $ SectionId $ Text.pack $ show s
     return s
 
 pAnnSpan :: (MonadState BookState m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Span
