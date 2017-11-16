@@ -270,15 +270,10 @@ preprocessChapter = \case
 preprocessSection :: MonadState BookState n => Span -> n Span
 preprocessSection = \case
   Span t -> do
-     knownSections <- gets bookStateSectionsDefined
-     let sId = SectionId t
-     if Set.member sId knownSections then do
-       sectionsReferenced %= Set.insert sId
-       return $ SectionRef sId
-     else do
-       warn $ WInvalidSection sId
-       return $ Span t
-  s -> do
+    let sId = SectionId t
+    sectionsReferenced %= Set.insert sId
+    return $ SectionRef sId
+  s      -> do
     warn $ WInvalidSection $ SectionId $ Text.pack $ show s
     return s
 
@@ -436,7 +431,16 @@ pSection = do
   return $ Section header units subsections
 
 pChapter :: (MonadState BookState m, MonadParsec e String m) => (Given ResourcesURI, Given TableOfContents) => m Section
-pChapter = runReaderT pSection (Depth 1) <* eof
+pChapter = do
+  section <- runReaderT pSection (Depth 1) <* eof
+  knownSections <- gets bookStateSectionsDefined
+  usedSections  <- gets bookStateSectionsReferenced
+
+  forM_ (Set.toList usedSections) $ \sectionId ->
+    unless (Set.member sectionId knownSections) $
+      warn $ WInvalidSection sectionId
+
+  return section
 
 pChapterId :: MonadParsec e String m => m ChapterId
 pChapterId = lexeme $ ChapterId . Text.pack <$> do
