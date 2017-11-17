@@ -70,7 +70,7 @@ renderTableOfContents (TableOfContents chapterIds) = do
     H.ol $ foldMap renderTocEntry chapterIds
   where
     renderTocEntry chapterId = H.li $
-      renderChapterRef False chapterId <>
+      renderChapterRef chapterId <>
       renderChapterProgress chapterId
 
 renderNav :: H.Html
@@ -344,13 +344,14 @@ cssTableOfContents = do
 
 renderSection :: Given Book => Depth -> Section -> H.Html
 renderSection d s = do
-  renderHeader d (s ^. sectionHeader)
+  renderHeader d (s ^. sectionId) (s ^. sectionHeader)
   foldMap renderUnit (s ^. sectionUnits)
   foldMap (renderSection (incDepth d)) (s ^. sectionSubsections)
 
-renderHeader :: Given Book => Depth -> Span -> H.Html
-renderHeader (Depth d) s = h $ renderSpan s
+renderHeader :: Given Book => Depth -> SectionId -> Span -> H.Html
+renderHeader (Depth d) sId s = h (renderSpan s) ! A.id (renderSectionId sId)
   where
+    h :: H.Html -> H.Html
     h = case d of
       1 -> H.h1
       2 -> H.h2
@@ -443,17 +444,25 @@ getChapterContent chapterId =
     Nothing -> error "Invalid chapter id. Couldn't have passed \
                      \validation in the parser!"
 
-renderChapterRef :: Given Book => Bool -> ChapterId -> H.Html
-renderChapterRef withQuotes chapterId =
+renderSectionId :: SectionId -> H.AttributeValue
+renderSectionId (SectionId t) = fromString $
+  Text.unpack (Text.intercalate "-" t)
+
+addQuotes :: (Monoid m, IsString m) => m -> m
+addQuotes a = "“" <> a <> "”"
+
+renderSectionRef :: Given Book => SectionId -> Span -> H.Html
+renderSectionRef sId sp =
+  H.a (addQuotes $ renderSpan sp) ! A.href ("#" <> renderSectionId sId)
+
+renderChapterRef :: Given Book => ChapterId -> H.Html
+renderChapterRef chapterId =
   let
     section = getChapterContent chapterId
     header = section ^. sectionHeader
     tUri = "./" <> unChapterId chapterId <> ".html"
-    addQuotes
-      | withQuotes = \a -> "“" <> a <> "”"
-      | otherwise  = id
   in
-    addQuotes $ H.a ! A.href (H.toValue tUri) $ renderSpan header
+    H.a ! A.href (H.toValue tUri) $ renderSpan header
 
 renderChapterProgress :: Given Book => ChapterId -> H.Html
 renderChapterProgress chapterId =
@@ -483,7 +492,8 @@ renderSpan = \case
   Parens s -> "(" <> renderSpan s <> ")"
   Spans ss -> foldMap renderSpan ss
   Emphasis s -> H.em (renderSpan s)
-  ChapterRef cId -> renderChapterRef True cId
+  SectionRef sId sp -> renderSectionRef sId sp
+  ChapterRef cId -> addQuotes $ renderChapterRef cId
   PackageRef packageName -> H.span
     ! A.class_ "package-name"
     $ H.toHtml packageName

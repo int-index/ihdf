@@ -2,9 +2,11 @@ module BookStructure where
 
 import Data.Data
 import Data.Map (Map)
-import Data.Text
+import Data.Text (Text)
 import Lens.Micro.Platform
 import Network.URI
+
+import qualified Data.Text as Text
 
 newtype Depth = Depth Int
 
@@ -14,6 +16,12 @@ incDepth (Depth n) = Depth (n+1)
 newtype ChapterId = ChapterId { unChapterId :: Text }
   deriving (Eq, Ord, Show, Data)
 
+newtype SectionId = SectionId { unSectionId :: [Text] }
+  deriving (Eq, Ord, Show, Data, Monoid)
+
+mkSectionId :: Text -> SectionId
+mkSectionId = SectionId . Text.words . Text.toLower
+
 data Span =
   Span Text |
   Mono Text |
@@ -21,6 +29,7 @@ data Span =
   Parens Span |
   Spans [Span] |
   Emphasis Span |
+  SectionRef SectionId Span |
   ChapterRef ChapterId |
   PackageRef Text |
   ModuleRef Text |
@@ -65,6 +74,7 @@ data Unit =
 
 data Section =
   Section {
+    _sectionId          :: SectionId,
     _sectionHeader      :: Span,
     _sectionUnits       :: [Unit],
     _sectionSubsections :: [Section]
