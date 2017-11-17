@@ -1,6 +1,5 @@
 module BookStructure where
 
-import Data.Char (toUpper)
 import Data.Data
 import Data.Map (Map)
 import Data.Text (Text)
@@ -17,16 +16,11 @@ incDepth (Depth n) = Depth (n+1)
 newtype ChapterId = ChapterId { unChapterId :: Text }
   deriving (Eq, Ord, Show, Data)
 
--- TODO: not export SectionId constructor to not accidentally use it instead of
--- 'mkSectionId' smart constructor.
-newtype SectionId = SectionId { unSectionId :: Text }
-  deriving (Eq, Ord, Show, Data)
+newtype SectionId = SectionId { unSectionId :: [Text] }
+  deriving (Eq, Ord, Show, Data, Monoid)
 
 mkSectionId :: Text -> SectionId
-mkSectionId = SectionId . Text.intercalate "-" . Text.words . Text.toLower
-
-sectionIdToHeader :: SectionId -> Text
-sectionIdToHeader = Text.unwords . map (over _head toUpper) . Text.split (== '-') . unSectionId
+mkSectionId = SectionId . Text.words . Text.toLower
 
 data Span =
   Span Text |
@@ -35,7 +29,7 @@ data Span =
   Parens Span |
   Spans [Span] |
   Emphasis Span |
-  SectionRef SectionId |
+  SectionRef SectionId Span |
   ChapterRef ChapterId |
   PackageRef Text |
   ModuleRef Text |
@@ -80,6 +74,7 @@ data Unit =
 
 data Section =
   Section {
+    _sectionId          :: SectionId,
     _sectionHeader      :: Span,
     _sectionUnits       :: [Unit],
     _sectionSubsections :: [Section]
