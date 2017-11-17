@@ -25,6 +25,7 @@ import Text.Megaparsec
 import Text.Megaparsec.Char
 
 import qualified Data.List as List
+import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Set as Set
 import qualified Data.Text as Text
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -67,6 +68,18 @@ emptyBookState = BookState
 
 warn :: MonadState BookState m => Warning -> m ()
 warn w = warnings %= (w:)
+
+extractSectionId :: MonadParsec e String m => Span -> m (Span, SectionId)
+extractSectionId = \case
+  Span t -> return (Span t, mkSectionId t)
+  Mono t -> return (Mono t, mkSectionId t)
+  -- TODO: temporal workaround for ## [ext](NegativeLiterals), [ext](NumDecimals), and [ext](BinaryLiterals)
+  Spans ts -> return (Spans ts, mkSectionId $ Text.pack $ show ts)
+  -- TODO: workaround for ## [package](vinyl)
+  Link uri ms -> return (Link uri ms, mkSectionId $ Text.pack $ show ms)
+  s -> do
+    let errorLabel = fromMaybe ('E' NonEmpty.:| "mpty span") $ NonEmpty.nonEmpty $ show s
+    unexpected $ Label errorLabel
 
 spaceConsumer :: MonadParsec e String m => m ()
 spaceConsumer = L.space
@@ -170,13 +183,12 @@ pMathSpan = do
 pHeader :: (MonadState BookState m, MonadReader Depth m, MonadParsec e String m) => (Given ResourcesURI, Given TableOfContents) => m Span
 pHeader = do
   Depth n <- ask
-  header  <- between (string (replicate n '#' ++ " ")) (many newline) $ pSpan (IsWrappingAllowed False)
-  case header of
-    Span t -> sectionsDefined %= Set.insert (SectionId t)
-    _      -> return ()
+  headerSpan  <- between (string (replicate n '#' ++ " ")) (many newline) $ pSpan (IsWrappingAllowed False)
+  (header, sId) <- extractSectionId headerSpan
+  sectionsDefined %= Set.insert sId
   return header
 
-pSpanProp :: (MonadState BookState m, MonadParsec e String m, MonadState BookState n, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m (Span -> n Span)
+pSpanProp :: (MonadState BookState m, MonadParsec e String m, MonadParsec e' String n, MonadState BookState n, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m (Span -> n Span)
 pSpanProp = between (string "[") (string "]") $ do
   propStr <- some (noneOf @[] "] ")
   case propStr of
@@ -267,15 +279,11 @@ preprocessChapter = \case
     warn WInvalidChapter
     return s
 
-preprocessSection :: MonadState BookState n => Span -> n Span
-preprocessSection = \case
-  Span t -> do
-    let sId = SectionId t
-    sectionsReferenced %= Set.insert sId
-    return $ SectionRef sId
-  s      -> do
-    warn $ WInvalidSection $ SectionId $ Text.pack $ show s
-    return s
+preprocessSection :: (MonadState BookState n, MonadParsec e String n) => Span -> n Span
+preprocessSection span = do
+  (_, sId) <- extractSectionId span
+  sectionsReferenced %= Set.insert sId
+  return $ SectionRef sId
 
 pAnnSpan :: (MonadState BookState m, MonadParsec e String m, MonadReader Depth m) => (Given ResourcesURI, Given TableOfContents) => m Span
 pAnnSpan = do

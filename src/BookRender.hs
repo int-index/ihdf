@@ -348,13 +348,8 @@ renderSection d s = do
   foldMap renderUnit (s ^. sectionUnits)
   foldMap (renderSection (incDepth d)) (s ^. sectionSubsections)
 
--- | Converts "Header Name" to "header-name".
-headerToId :: Text -> H.AttributeValue
-headerToId = fromString
-           . Text.unpack
-           . Text.intercalate "-"
-           . Text.words
-           . Text.toLower
+textToHeaderId :: Text -> H.AttributeValue
+textToHeaderId = fromString . Text.unpack
 
 renderHeader :: Given Book => Depth -> Span -> H.Html
 renderHeader (Depth d) s = case headerId of
@@ -376,7 +371,7 @@ renderHeader (Depth d) s = case headerId of
 
     headerId :: Maybe H.AttributeValue
     headerId = case s of
-      Span sp -> Just $ headerToId sp
+      Span sp -> Just $ textToHeaderId $ unSectionId $ mkSectionId sp
       _       -> Nothing
 
 renderUnit :: Given Book => Unit -> H.Html
@@ -461,9 +456,10 @@ getChapterContent chapterId =
     Just s  -> s
     Nothing -> error "Invalid chapter id. Couldn't have passed \
                      \validation in the parser!"
+
 renderSectionRef  :: SectionId -> H.Html
-renderSectionRef (SectionId t) =
-  H.a (H.toHtml t) ! A.href (headerToId $ Text.cons '#' t)
+renderSectionRef sId@(SectionId t) =
+  H.a (H.toHtml $ sectionIdToHeader sId) ! A.href (textToHeaderId $ Text.cons '#' t)
 
 renderChapterRef :: Given Book => Bool -> ChapterId -> H.Html
 renderChapterRef withQuotes chapterId =

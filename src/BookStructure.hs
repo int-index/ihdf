@@ -1,10 +1,13 @@
 module BookStructure where
 
+import Data.Char (toUpper)
 import Data.Data
 import Data.Map (Map)
-import Data.Text
+import Data.Text (Text)
 import Lens.Micro.Platform
 import Network.URI
+
+import qualified Data.Text as Text
 
 newtype Depth = Depth Int
 
@@ -14,8 +17,16 @@ incDepth (Depth n) = Depth (n+1)
 newtype ChapterId = ChapterId { unChapterId :: Text }
   deriving (Eq, Ord, Show, Data)
 
+-- TODO: not export SectionId constructor to not accidentally use it instead of
+-- 'mkSectionId' smart constructor.
 newtype SectionId = SectionId { unSectionId :: Text }
   deriving (Eq, Ord, Show, Data)
+
+mkSectionId :: Text -> SectionId
+mkSectionId = SectionId . Text.intercalate "-" . Text.words . Text.toLower
+
+sectionIdToHeader :: SectionId -> Text
+sectionIdToHeader = Text.unwords . map (over _head toUpper) . Text.split (== '-') . unSectionId
 
 data Span =
   Span Text |
