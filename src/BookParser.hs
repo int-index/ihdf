@@ -436,9 +436,8 @@ pChapter = do
   knownSections <- gets bookStateSectionsDefined
   usedSections  <- gets bookStateSectionsReferenced
 
-  forM_ (Set.toList usedSections) $ \sectionId ->
-    unless (Set.member sectionId knownSections) $
-      warn $ WInvalidSection sectionId
+  for_ (Set.difference usedSections knownSections) $ \sectionId ->
+    warn $ WInvalidSection sectionId
 
   return section
 
