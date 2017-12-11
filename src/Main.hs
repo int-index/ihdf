@@ -7,6 +7,7 @@ import Data.Optional
 import Lens.Micro.Platform
 import Network.URI
 import Turtle
+import Text.Megaparsec.Pos (sourcePosPretty)
 
 import qualified Control.Foldl as Fold
 import Data.Map (Map)
@@ -66,7 +67,14 @@ readChapters resURI srcPath tableOfContents =
       chapterFileContent <- liftIO $ readTextFile chapterPath
       (section, BookState parseWarnings _ _) <- either (handleParseError chapterFileContent) return $
         parseChapter tableOfContents resURI chapterPath chapterFileContent
-      traverse_ (printf (makeFormat renderWarning % "\n")) parseWarnings
+      let
+        printWarning (srcLoc, warning) =
+          printf ("[WARNING] " %
+                  makeFormat (Text.pack . sourcePosPretty) % ": " %
+                  makeFormat renderWarning % "\n")
+          srcLoc
+          warning
+      traverse_ printWarning parseWarnings
       return section
 
 handleParseError :: MonadIO io => Text -> ParseErr -> io a
