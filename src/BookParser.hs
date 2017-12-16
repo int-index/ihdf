@@ -207,6 +207,7 @@ findContractions t = do
         "he'd",
         "he'll",
         "he's",
+        "here's",
         "how'd",
         "how'll",
         "how's",
