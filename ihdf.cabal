@@ -15,7 +15,7 @@ executable ihdf
     BookRender
 
   build-depends:
-    base >=4.9 && <4.10,
+    base >=4.11 && <4.12,
     blaze-html,
     clay,
     containers,

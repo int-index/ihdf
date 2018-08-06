@@ -6,7 +6,6 @@ import Data.Foldable
 import Data.Generics.Uniplate.Data
 import qualified Data.List as List
 import qualified Data.Map as Map
-import Data.Monoid
 import Data.Reflection
 import Data.String
 import Data.Text (Text)

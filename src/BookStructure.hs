@@ -17,7 +17,7 @@ newtype ChapterId = ChapterId { unChapterId :: Text }
   deriving (Eq, Ord, Show, Data)
 
 newtype SectionId = SectionId { unSectionId :: [Text] }
-  deriving (Eq, Ord, Show, Data, Monoid)
+  deriving (Eq, Ord, Show, Data, Semigroup, Monoid)
 
 mkSectionId :: Text -> SectionId
 mkSectionId = SectionId . Text.words . Text.toLower

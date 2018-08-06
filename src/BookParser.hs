@@ -5,7 +5,7 @@ module BookParser where
 
 import Prelude hiding (FilePath, span)
 
-import Control.Applicative
+import Control.Applicative hiding (some, many)
 import Control.Monad (void)
 import Control.Monad.Reader
 import Control.Monad.State
@@ -13,7 +13,6 @@ import Data.Foldable
 import Data.Functor
 import Data.List.NonEmpty (NonEmpty (..), nonEmpty)
 import Data.Maybe
-import Data.Monoid
 import Data.Reflection
 import Data.Set (Set)
 import Data.Text (Text)
@@ -29,7 +28,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Set as Set
 import qualified Data.Text as Text
 import qualified Text.Megaparsec.Char.Lexer as L
-import qualified Turtle
+import qualified Turtle hiding (some, many)
 
 import BookStructure
 
