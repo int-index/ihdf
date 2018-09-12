@@ -1,3 +1,4 @@
+
 function light() {
   localStorage.setItem("theme", "light");
   document.getElementById("theme-link").href="./chapter-light.css"
@@ -22,3 +23,18 @@ function loadTheme() {
 }
 
 loadTheme();
+
+function showSolution(btn) {
+  btn.parentElement.getElementsByClassName('solution-content')[0].
+    classList.remove('solution-hidden');
+  btn.innerHTML = "Hide solution";
+  btn.onclick = function() { hideSolution(btn) };
+}
+
+function hideSolution(btn) {
+  btn.parentElement.getElementsByClassName('solution-content')[0].
+    classList.add('solution-hidden');
+  btn.innerHTML = "Show solution";
+  btn.onclick = function() { showSolution(btn) };
+}
+

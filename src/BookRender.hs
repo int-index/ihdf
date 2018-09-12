@@ -270,6 +270,14 @@ cssChapter = do
     C.borderLeftColor colorOutline
   C.thead ? do
     C.borderBottomColor colorOutline
+  ".solution-content" ? do
+    C.transitionProperties ["text-shadow", "color"]
+    C.transitionDuration (C.sec 1)
+    C.transitionTimingFunction C.easeIn
+  ".solution-hidden" ? do
+    C.color C.transparent
+    C.textShadow (C.px 0) (C.px 0) (C.px 15) (C.rgba 0 0 0 0.5)
+    C.transitionTimingFunction C.easeOut
   forM_ [ (".note", colorNote)
         , (".todo", colorTodo)
         , (".tip",  colorTip)
@@ -377,7 +385,8 @@ renderUnit = \case
     H.span $ renderUnit u
   UnitSolution u -> H.fieldset ! A.class_ "solution" $ do
     H.legend "Solution"
-    H.span $ renderUnit u
+    H.button ! A.onclick "showSolution(this);" $ "Show solution"
+    H.span ! A.class_ "solution-content solution-hidden" $ renderUnit u
   UnitSnippet (Snippet t) -> H.code ! A.class_ "snippet" $ H.toHtml t
   UnitList us -> H.ul (foldMap (H.li . renderUnit) us)
   UnitTable tbl -> renderTable tbl
